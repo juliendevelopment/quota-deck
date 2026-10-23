@@ -34,7 +34,12 @@ class AuthErrorScreenshotRegressionTest {
         }
         compose.waitUntil(5000) { compose.onAllNodesWithText("Diagnostic réseau de test").fetchSemanticsNodes().isNotEmpty() }
         compose.onNodeWithText("Diagnostic réseau de test").assertIsDisplayed()
-        compose.runOnIdle { assertEquals("Non-sensitive error screens must not be blacked out", 0, compose.activity.window.attributes.flags and WindowManager.LayoutParams.FLAG_SECURE) }
+        compose.runOnIdle {
+            assertEquals("Non-sensitive error screens must not be blacked out", 0, compose.activity.window.attributes.flags and WindowManager.LayoutParams.FLAG_SECURE)
+            val dialog = org.robolectric.shadows.ShadowDialog.getLatestDialog()
+            assertNotNull("The visible OAuth dialog must also be checked", dialog)
+            assertEquals("The dialog must not keep its inherited secure flag", 0, dialog.window!!.attributes.flags and WindowManager.LayoutParams.FLAG_SECURE)
+        }
         compose.onNodeWithText("Copier le diagnostic").performClick()
         compose.runOnIdle {
             val clipboard = compose.activity.getSystemService(android.content.Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
