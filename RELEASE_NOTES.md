@@ -1,16 +1,17 @@
-## QuotaDeck 0.1.1 — correction des connexions Google
+## QuotaDeck 0.1.2 — finalisation après le retour du navigateur
 
-Installez cet APK **par-dessus la version 0.1.0**, sans désinstaller. Même clé de signature, versionCode 101 : les connexions existantes sont conservées.
+Installez cet APK **par-dessus la version actuelle, sans désinstaller**. Même clé de signature, versionCode 102. Le connecteur OpenCode Go et les données chiffrées existantes sont conservés.
 
 ### Changements
 
-- **Claude** : le bouton principal utilise désormais le navigateur système pour Google et la double authentification, puis un callback OAuth local vers le téléphone. PKCE, `state`, scope `user:profile` demandé pour les quotas, jetons chiffrés et renouvelables. Client public Claude Code, intégration non officielle.
-- **OpenCode Go** : connexion Google dans le navigateur système, puis copie unique de la clé Go de la console vers l’app. Aucun nouvel abonnement, aucun appel de génération. Chrome ne partage pas ses cookies avec l’app : ce transfert manuel est explicite, au lieu d’un faux retour de connexion automatique.
-- **Ancienne fenêtre email intégrée** : Google y est intercepté avant l’authentification, avec explication et bouton de connexion externe. Les erreurs HTTP, redirections refusées et chargements bloqués ne sont plus silencieux.
-- Codex et Antigravity : parcours inchangés.
+- **Claude et Google Antigravity** : après réception du callback, l’app attend d’être au premier plan avant d’appeler l’endpoint de jeton. Le parcours ne dépend plus de requêtes réseau lancées pendant que Chrome est affiché.
+- **Page localhost** : « Autorisation reçue » au lieu d’une connexion prématurément annoncée comme terminée. Un grand bouton **Revenir dans QuotaDeck** ramène à l’activité existante, sans transporter de code ou de jeton dans le lien. Fermer l’onglet et revenir manuellement reste possible.
+- **Finalisation visible** : réception de l’autorisation, échange du jeton, stockage chiffré et lecture des quotas sont distingués. La session n’est pas déclarée connectée à la seule réception du callback.
+- **Erreurs exploitables** : DNS, TLS/certificat, délai réseau ou accès réseau restreint sont distingués. **Copier le diagnostic** fournit uniquement des métadonnées autorisées : version, étape, catégorie réseau, endpoint sans query et éventuel statut HTTP/code OAuth.
+- **Captures d’écran** : autorisées pour les erreurs OAuth sans secret. Les champs de clé API, le code d’appareil et la connexion web restent protégés.
 
 ### Vérification et limites
 
-Des tests de régression ont d’abord échoué sur les deux parcours Google embarqués, puis la nouvelle suite vérifie le lancement du navigateur depuis l’activité réelle, le formulaire Go, PKCE, les échanges et renouvellements Claude, le callback localhost et l’interception Google dans la fenêtre de secours.
+Les régressions couvrent le vrai ViewModel avec callback HTTP et échange de jeton simulé pour les deux fournisseurs, un réseau refusé en arrière-plan, le retour dans la même tâche Android, les captures d’erreur et la copie d’un diagnostic sans secret. Les endpoints réels de jetons ont répondu aux sondes anonymes négatives ; cela ne valide aucune connexion de compte.
 
-La 2FA et l’accès aux quotas de comptes personnels restent à tester sur le téléphone de Julien : aucune validation de compte réel n’est revendiquée. Anthropic peut refuser un client/scope ; ce refus ne sera pas contourné. Ne transmettre aucun mot de passe, code de connexion ou clé dans Discord.
+Le blocage réseau en arrière-plan est une cause plausible du message observé, pas une cause prouvée sur le téléphone de Julien. La connexion et l’accès aux quotas de ses comptes réels restent à confirmer sur son appareil. En cas d’échec, partager uniquement le diagnostic copié, jamais une clé, un mot de passe, un code de connexion ou un jeton.

@@ -51,6 +51,7 @@ fun DashboardScreen(
     onDisconnect: (ProviderId) -> Unit,
     onOpenUsage: (ProviderId) -> Unit,
     onAbout: () -> Unit,
+    onCopyDiagnostic: (ProviderId) -> Unit = {},
 ) {
     Surface(modifier = Modifier.fillMaxSize(), color = Background) {
         LazyColumn(
@@ -81,7 +82,7 @@ fun DashboardScreen(
                 }
             }
             items(states, key = { it.id.name }) { state ->
-                ProviderCard(state, { onConnect(state.id) }, { onDisconnect(state.id) }, { onOpenUsage(state.id) })
+                ProviderCard(state, { onConnect(state.id) }, { onDisconnect(state.id) }, { onOpenUsage(state.id) }, { onCopyDiagnostic(state.id) })
             }
             item {
                 Row(Modifier.padding(4.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -94,7 +95,7 @@ fun DashboardScreen(
 }
 
 @Composable
-private fun ProviderCard(state: ProviderState, onConnect: () -> Unit, onDisconnect: () -> Unit, onOpenUsage: () -> Unit) {
+private fun ProviderCard(state: ProviderState, onConnect: () -> Unit, onDisconnect: () -> Unit, onOpenUsage: () -> Unit, onCopyDiagnostic: () -> Unit) {
     val color = providerColor(state.id)
     var menu by remember { mutableStateOf(false) }
     Card(shape = RoundedCornerShape(24.dp), colors = CardDefaults.cardColors(containerColor = Surface)) {
@@ -120,6 +121,7 @@ private fun ProviderCard(state: ProviderState, onConnect: () -> Unit, onDisconne
             if (state.loading) LinearProgressIndicator(modifier = Modifier.fillMaxWidth(), color = color)
             state.error?.let {
                 Text(it, color = MaterialTheme.colorScheme.error, fontSize = 13.sp)
+                if (state.diagnostic != null) TextButton(onClick = onCopyDiagnostic) { Text("Copier le diagnostic ${state.id.title}") }
                 if (state.snapshot != null) Text("Dernier relevé conservé — données non actualisées", color = Color(0xFFFFCE82), fontSize = 12.sp)
             }
             val snapshot = state.snapshot

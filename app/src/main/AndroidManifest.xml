@@ -6,10 +6,16 @@
         android:theme="@style/Theme.QuotaDeck" android:label="QuotaDeck"
         android:icon="@drawable/ic_launcher" android:supportsRtl="true"
         android:usesCleartextTraffic="false">
-        <activity android:name=".MainActivity" android:exported="true">
+        <activity android:name=".MainActivity" android:exported="true" android:launchMode="singleTask">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="quotadeck" android:host="oauth" android:path="/return" />
             </intent-filter>
         </activity>
     </application>

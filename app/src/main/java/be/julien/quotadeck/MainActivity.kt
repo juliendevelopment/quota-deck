@@ -26,6 +26,12 @@ import be.julien.quotadeck.ui.*
 
 class MainActivity : ComponentActivity() {
     private val model: DashboardViewModel by viewModels()
+    override fun onResume() { super.onResume(); model.setUiActive(true) }
+    override fun onPause() { model.setUiActive(false); super.onPause() }
+    override fun onNewIntent(intent: android.content.Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent) // Return-to-app navigation only. Never read or trust OAuth data from this intent.
+    }
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
@@ -33,9 +39,10 @@ class MainActivity : ComponentActivity() {
             val states by model.states.collectAsStateWithLifecycle()
             val login by model.login.collectAsStateWithLifecycle()
             var about by remember { mutableStateOf(false) }
-            // Block screenshots only during login, not on the harmless dashboard.
-            DisposableEffect(login != null) {
-                if (login != null) window.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
+            // Error screens for OAuth contain no secrets and must remain capturable for support.
+            val protect = login != null && (login?.error == null || login?.stage == "web" || login?.stage == "device" || login?.provider == ProviderId.OPENCODE)
+            DisposableEffect(protect) {
+                if (protect) window.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
                 else window.clearFlags(WindowManager.LayoutParams.FLAG_SECURE)
                 onDispose { }
             }
@@ -47,7 +54,8 @@ class MainActivity : ComponentActivity() {
                 }
                 else Box(Modifier.fillMaxSize().safeDrawingPadding()) {
                     DashboardScreen(states, states.any { it.loading }, model::refreshAll, model::beginConnection, model::disconnect,
-                        { openUrl(it.homeUrl) }, { about = true })
+                        { openUrl(it.homeUrl) }, { about = true },
+                        { id -> states.firstOrNull { it.id == id }?.diagnostic?.let { copyDiagnostic(this@MainActivity, it) } })
                 }
                 if (about) AlertDialog(onDismissRequest = { about = false }, confirmButton = { TextButton(onClick = { about = false }) { Text("Fermer") } },
                     title = { Text("QuotaDeck ${BuildConfig.VERSION_NAME}") }, text = { Text("Application personnelle, non officielle. Aucune requête de génération IA, aucun achat, aucune télémétrie. Les sessions et derniers relevés sont chiffrés par Android Keystore, hors sauvegarde. Les interfaces de quotas peuvent changer. Déconnecter efface les données locales ; pour révoquer une autorisation, utilisez les réglages du fournisseur. Les quotas ne sont vérifiés qu’après un relevé réussi.") })
@@ -62,13 +70,24 @@ class MainActivity : ComponentActivity() {
     }
 }
 
+private fun copyDiagnostic(context: Context, diagnostic: String) {
+    (context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager)
+        .setPrimaryClip(ClipData.newPlainText("Diagnostic QuotaDeck sans secrets", diagnostic))
+}
+
 @Composable
 private fun LoginDialog(state: LoginState, cancel: () -> Unit, start: () -> Unit, open: (String) -> Unit, emailLogin: () -> Unit) {
     val context = androidx.compose.ui.platform.LocalContext.current
     AlertDialog(onDismissRequest = cancel, title = { Text("Connecter ${state.provider.title}") },
         text = {
             Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                state.error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+                state.error?.let {
+                    SelectionContainer { Text(it, color = MaterialTheme.colorScheme.error) }
+                    Text("Étape : ${state.phase.label}", style = MaterialTheme.typography.bodySmall)
+                    state.diagnostic?.let { diagnostic ->
+                        TextButton(onClick = { copyDiagnostic(context, diagnostic) }) { Text("Copier le diagnostic") }
+                    }
+                }
                 when (state.stage) {
                     "device" -> {
                         Text("1. Copiez le code.\n2. Ouvrez OpenAI, connectez-vous et autorisez le code.\n3. Revenez ici : la connexion se termine automatiquement.")
@@ -83,7 +102,8 @@ private fun LoginDialog(state: LoginState, cancel: () -> Unit, start: () -> Unit
                         LinearProgressIndicator(Modifier.fillMaxWidth())
                     }
                     "google" -> { Text("Terminez la connexion Google dans le navigateur, puis revenez ici. L’autorisation utilise le client public installé d’Antigravity ; elle n’est pas propre à QuotaDeck."); LinearProgressIndicator(Modifier.fillMaxWidth()) }
-                    "working" -> { Text("Connexion en cours…"); LinearProgressIndicator(Modifier.fillMaxWidth()) }
+                    "callback" -> { Text("Autorisation reçue. La finalisation reprend dès que QuotaDeck est au premier plan."); LinearProgressIndicator(Modifier.fillMaxWidth()) }
+                    "working" -> { Text("${state.phase.label}…"); LinearProgressIndicator(Modifier.fillMaxWidth()) }
                     else -> {
                         Text(when (state.provider) {
                             ProviderId.CLAUDE -> "Claude s’ouvre dans le navigateur système, qui prend en charge Google et sa double authentification. Le retour utilise une autorisation locale avec PKCE. Ce client public Claude Code demande uniquement le scope user:profile pour lire les quotas ; cette intégration reste non officielle."
@@ -103,7 +123,7 @@ private fun LoginDialog(state: LoginState, cancel: () -> Unit, start: () -> Unit
                 "device" -> TextButton(onClick = { state.url?.let(open) }) { Text("Ouvrir OpenAI") }
                 "google" -> TextButton(onClick = { state.url?.let(open) }) { Text("Rouvrir Google") }
                 "claude" -> TextButton(onClick = { state.url?.let(open) }) { Text("Rouvrir Claude") }
-                "working" -> Unit
+                "working", "callback" -> Unit
                 else -> TextButton(onClick = start) { Text("Continuer chez ${state.provider.title}") }
             }
         },

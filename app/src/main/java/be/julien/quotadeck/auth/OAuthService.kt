@@ -26,7 +26,7 @@ object OAuthConfig {
 
 data class DeviceLogin(val deviceId: String, val code: String, val intervalSeconds: Long, val startedAt: Long = System.currentTimeMillis())
 
-class OAuthService(private val api: ApiClient = ApiClient(), private val openAiBase: String = "https://auth.openai.com", private val claudeTokenUrl: String = OAuthConfig.CLAUDE_TOKEN) {
+class OAuthService(private val api: ApiClient = ApiClient(), private val openAiBase: String = "https://auth.openai.com", private val claudeTokenUrl: String = OAuthConfig.CLAUDE_TOKEN, private val googleTokenUrl: String = "https://oauth2.googleapis.com/token") {
     fun claudeUrl(redirect: String, state: String, verifier: String): String = OAuthConfig.CLAUDE_AUTHORIZE.toHttpUrl().newBuilder()
         .addQueryParameter("code", "true").addQueryParameter("client_id", OAuthConfig.CLAUDE_CLIENT)
         .addQueryParameter("response_type", "code").addQueryParameter("redirect_uri", redirect)
@@ -63,7 +63,7 @@ class OAuthService(private val api: ApiClient = ApiClient(), private val openAiB
         .addQueryParameter("response_type", "code").addQueryParameter("scope", OAuthConfig.GOOGLE_SCOPES.joinToString(" "))
         .addQueryParameter("access_type", "offline").addQueryParameter("prompt", "select_account consent")
         .addQueryParameter("state", state).addQueryParameter("code_challenge", OAuthConfig.challenge(verifier)).addQueryParameter("code_challenge_method", "S256").build().toString()
-    suspend fun finishGoogle(code: String, redirect: String, verifier: String): Credential = credential(api.form("https://oauth2.googleapis.com/token", mapOf(
+    suspend fun finishGoogle(code: String, redirect: String, verifier: String): Credential = credential(api.form(googleTokenUrl, mapOf(
         "grant_type" to "authorization_code", "client_id" to OAuthConfig.GOOGLE_CLIENT, "client_secret" to OAuthConfig.GOOGLE_INSTALLED_CLIENT_VALUE,
         "code" to code, "redirect_uri" to redirect, "code_verifier" to verifier)))
     suspend fun refresh(id: ProviderId, old: Credential): Credential {
@@ -73,7 +73,7 @@ class OAuthService(private val api: ApiClient = ApiClient(), private val openAiB
             put("client_id", OAuthConfig.CLAUDE_CLIENT); put("grant_type", "refresh_token"); put("refresh_token", old.refreshToken); put("scope", "user:profile")
         }) else if (id == ProviderId.CODEX) api.post("$openAiBase/oauth/token", buildJsonObject {
             put("client_id", OAuthConfig.OPENAI_CLIENT); put("grant_type", "refresh_token"); put("refresh_token", old.refreshToken)
-        }) else api.form("https://oauth2.googleapis.com/token", mapOf("client_id" to OAuthConfig.GOOGLE_CLIENT, "client_secret" to OAuthConfig.GOOGLE_INSTALLED_CLIENT_VALUE,
+        }) else api.form(googleTokenUrl, mapOf("client_id" to OAuthConfig.GOOGLE_CLIENT, "client_secret" to OAuthConfig.GOOGLE_INSTALLED_CLIENT_VALUE,
             "grant_type" to "refresh_token", "refresh_token" to old.refreshToken))
         val updated = credential(response)
         return updated.copy(refreshToken = updated.refreshToken.ifBlank { old.refreshToken }, accountId = old.accountId, projectId = old.projectId)

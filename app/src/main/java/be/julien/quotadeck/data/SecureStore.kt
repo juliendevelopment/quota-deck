@@ -15,8 +15,16 @@ import javax.crypto.KeyGenerator
 import javax.crypto.SecretKey
 import javax.crypto.spec.GCMParameterSpec
 
+interface AccountStore {
+    fun credential(id: ProviderId): Credential?
+    fun save(id: ProviderId, credential: Credential)
+    fun snapshot(id: ProviderId): ProviderSnapshot?
+    fun save(snapshot: ProviderSnapshot)
+    fun forget(id: ProviderId)
+}
+
 /** All saved credentials and snapshots are AES-GCM encrypted with a non-exportable Android Keystore key. */
-class SecureStore(context: Context) {
+class SecureStore(context: Context) : AccountStore {
     private val prefs = context.getSharedPreferences("encrypted_accounts", Context.MODE_PRIVATE)
     private val json = Json { ignoreUnknownKeys = true }
     private val alias = "quotadeck.accounts.v1"
@@ -47,13 +55,13 @@ class SecureStore(context: Context) {
             cipher.doFinal(bytes.copyOfRange(12, bytes.size)).toString(Charsets.UTF_8)
         }.getOrNull()
     }
-    fun credential(id: ProviderId): Credential? = read("credential.${id.name}")?.let {
+    override fun credential(id: ProviderId): Credential? = read("credential.${id.name}")?.let {
         runCatching { json.decodeFromString<Credential>(it) }.getOrNull()
     }
-    fun save(id: ProviderId, credential: Credential) = write("credential.${id.name}", json.encodeToString(credential))
-    fun snapshot(id: ProviderId): ProviderSnapshot? = read("snapshot.${id.name}")?.let {
+    override fun save(id: ProviderId, credential: Credential) = write("credential.${id.name}", json.encodeToString(credential))
+    override fun snapshot(id: ProviderId): ProviderSnapshot? = read("snapshot.${id.name}")?.let {
         runCatching { json.decodeFromString<ProviderSnapshot>(it) }.getOrNull()
     }
-    fun save(snapshot: ProviderSnapshot) = write("snapshot.${snapshot.provider.name}", json.encodeToString(snapshot))
-    fun forget(id: ProviderId) { write("credential.${id.name}", null); write("snapshot.${id.name}", null) }
+    override fun save(snapshot: ProviderSnapshot) = write("snapshot.${snapshot.provider.name}", json.encodeToString(snapshot))
+    override fun forget(id: ProviderId) { write("credential.${id.name}", null); write("snapshot.${id.name}", null) }
 }

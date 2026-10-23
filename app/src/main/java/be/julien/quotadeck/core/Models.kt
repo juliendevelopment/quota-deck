@@ -48,6 +48,7 @@ data class ProviderState(
     val loading: Boolean = false,
     val snapshot: ProviderSnapshot? = null,
     val error: String? = null,
+    val diagnostic: String? = null,
 )
 
 fun resetLabel(value: String?, now: Instant = Instant.now()): String? {

@@ -3,8 +3,12 @@ package be.julien.quotadeck.data
 import be.julien.quotadeck.core.*
 import kotlinx.serialization.json.*
 
-class ProviderService(private val api: ApiClient = ApiClient(), private val claudeOAuthUsageUrl: String = "https://api.anthropic.com/api/oauth/usage") {
-    suspend fun fetch(id: ProviderId, credential: Credential): Pair<Credential, ProviderSnapshot> = when (id) {
+interface ProviderReader {
+    suspend fun fetch(id: ProviderId, credential: Credential): Pair<Credential, ProviderSnapshot>
+}
+
+class ProviderService(private val api: ApiClient = ApiClient(), private val claudeOAuthUsageUrl: String = "https://api.anthropic.com/api/oauth/usage") : ProviderReader {
+    override suspend fun fetch(id: ProviderId, credential: Credential): Pair<Credential, ProviderSnapshot> = when (id) {
         ProviderId.CLAUDE -> claude(credential)
         ProviderId.CODEX -> codex(credential)
         ProviderId.ANTIGRAVITY -> antigravity(credential)
