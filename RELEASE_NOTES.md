@@ -1,13 +1,16 @@
-## QuotaDeck 0.1.0 — première alpha Android
+## QuotaDeck 0.1.1 — correction des connexions Google
 
-- Tableau de bord Kotlin/Compose en français : Claude, Codex, Google Antigravity, OpenCode Go.
-- Bouton de connexion par fournisseur ; session locale chiffrée ; déconnexion et actualisation manuelle.
-- Fenêtres de quotas réellement communiquées par le fournisseur, pourcentages restants et réinitialisations.
-- Connexion Codex par code d’appareil ; Antigravity par Google dans le navigateur ; Claude et OpenCode par session web, avec alternative clé pour OpenCode.
-- Aucun appel de génération IA, achat ou serveur supplémentaire.
+Installez cet APK **par-dessus la version 0.1.0**, sans désinstaller. Même clé de signature, versionCode 101 : les connexions existantes sont conservées.
 
-**Installation :** télécharger l’APK ci-dessous, puis l’ouvrir sur un téléphone Android 8 ou plus récent. Les mises à jour signées avec cette même clé conserveront les données.
+### Changements
 
-**Limites à tester :** les connexions personnelles n’ont pas été autorisées à la place de Julien. Les interfaces de quotas sont non officielles et peuvent être refusées ou modifiées. Google/Cloudflare/passkeys peuvent bloquer les connexions web intégrées. Un compte Antigravity doit déjà être initialisé dans l’application de bureau. Une connexion réussie n’implique pas qu’un quota a été rendu accessible : les erreurs restent visibles, sans chiffres inventés.
+- **Claude** : le bouton principal utilise désormais le navigateur système pour Google et la double authentification, puis un callback OAuth local vers le téléphone. PKCE, `state`, scope `user:profile` demandé pour les quotas, jetons chiffrés et renouvelables. Client public Claude Code, intégration non officielle.
+- **OpenCode Go** : connexion Google dans le navigateur système, puis copie unique de la clé Go de la console vers l’app. Aucun nouvel abonnement, aucun appel de génération. Chrome ne partage pas ses cookies avec l’app : ce transfert manuel est explicite, au lieu d’un faux retour de connexion automatique.
+- **Ancienne fenêtre email intégrée** : Google y est intercepté avant l’authentification, avec explication et bouton de connexion externe. Les erreurs HTTP, redirections refusées et chargements bloqués ne sont plus silencieux.
+- Codex et Antigravity : parcours inchangés.
 
-Ne pas transmettre de mot de passe, cookie ou jeton dans Discord. Effectuer les connexions uniquement dans l’app et chez les fournisseurs.
+### Vérification et limites
+
+Des tests de régression ont d’abord échoué sur les deux parcours Google embarqués, puis la nouvelle suite vérifie le lancement du navigateur depuis l’activité réelle, le formulaire Go, PKCE, les échanges et renouvellements Claude, le callback localhost et l’interception Google dans la fenêtre de secours.
+
+La 2FA et l’accès aux quotas de comptes personnels restent à tester sur le téléphone de Julien : aucune validation de compte réel n’est revendiquée. Anthropic peut refuser un client/scope ; ce refus ne sera pas contourné. Ne transmettre aucun mot de passe, code de connexion ou clé dans Discord.

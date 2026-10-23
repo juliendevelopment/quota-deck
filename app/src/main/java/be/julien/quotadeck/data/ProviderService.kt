@@ -3,7 +3,7 @@ package be.julien.quotadeck.data
 import be.julien.quotadeck.core.*
 import kotlinx.serialization.json.*
 
-class ProviderService(private val api: ApiClient = ApiClient()) {
+class ProviderService(private val api: ApiClient = ApiClient(), private val claudeOAuthUsageUrl: String = "https://api.anthropic.com/api/oauth/usage") {
     suspend fun fetch(id: ProviderId, credential: Credential): Pair<Credential, ProviderSnapshot> = when (id) {
         ProviderId.CLAUDE -> claude(credential)
         ProviderId.CODEX -> codex(credential)
@@ -11,6 +11,10 @@ class ProviderService(private val api: ApiClient = ApiClient()) {
         ProviderId.OPENCODE -> opencode(credential)
     }
     private suspend fun claude(c: Credential): Pair<Credential, ProviderSnapshot> {
+        if (c.accessToken.isNotBlank()) {
+            val data = api.get(claudeOAuthUsageUrl, mapOf("Authorization" to "Bearer ${c.accessToken}", "anthropic-beta" to "oauth-2025-04-20"))
+            return c to QuotaParsers.claude(data)
+        }
         val headers = buildMap {
             put("Cookie", c.sessionCookie); put("Referer", "https://claude.ai/settings/usage")
             if (c.userAgent.isNotBlank()) put("User-Agent", c.userAgent)

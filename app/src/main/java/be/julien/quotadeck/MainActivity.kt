@@ -18,7 +18,6 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import be.julien.quotadeck.auth.WebLogin
@@ -41,14 +40,18 @@ class MainActivity : ComponentActivity() {
                 onDispose { }
             }
             QuotaDeckTheme {
-                if (login?.stage == "web") WebLogin(login!!.provider, login!!.error, model::browserCredential, model::cancelLogin)
+                if (login?.stage == "web") WebLogin(login!!.provider, login!!.error, model::browserCredential, model::cancelLogin,
+                    onExternalLogin = { model.beginConnection(ProviderId.CLAUDE); model.startConnection(::openUrl) })
+                else if (login?.provider == ProviderId.OPENCODE && login?.stage != "working") {
+                    OpenCodeConnectionScreen(login?.error, { openUrl("https://opencode.ai/console") }, model::importApiKey, model::cancelLogin)
+                }
                 else Box(Modifier.fillMaxSize().safeDrawingPadding()) {
                     DashboardScreen(states, states.any { it.loading }, model::refreshAll, model::beginConnection, model::disconnect,
                         { openUrl(it.homeUrl) }, { about = true })
                 }
                 if (about) AlertDialog(onDismissRequest = { about = false }, confirmButton = { TextButton(onClick = { about = false }) { Text("Fermer") } },
                     title = { Text("QuotaDeck ${BuildConfig.VERSION_NAME}") }, text = { Text("Application personnelle, non officielle. Aucune requête de génération IA, aucun achat, aucune télémétrie. Les sessions et derniers relevés sont chiffrés par Android Keystore, hors sauvegarde. Les interfaces de quotas peuvent changer. Déconnecter efface les données locales ; pour révoquer une autorisation, utilisez les réglages du fournisseur. Les quotas ne sont vérifiés qu’après un relevé réussi.") })
-                login?.takeIf { it.stage != "web" }?.let { state -> LoginDialog(state, model::cancelLogin, { model.startConnection(::openUrl) }, ::openUrl, model::importApiKey) }
+                login?.takeIf { it.stage != "web" && (it.provider != ProviderId.OPENCODE || it.stage == "working") }?.let { state -> LoginDialog(state, model::cancelLogin, { model.startConnection(::openUrl) }, ::openUrl, model::startEmailConnection) }
             }
         }
     }
@@ -60,9 +63,7 @@ class MainActivity : ComponentActivity() {
 }
 
 @Composable
-private fun LoginDialog(state: LoginState, cancel: () -> Unit, start: () -> Unit, open: (String) -> Unit, importKey: (String) -> Unit) {
-    var keyMode by remember(state.provider) { mutableStateOf(false) }
-    var key by remember { mutableStateOf("") }
+private fun LoginDialog(state: LoginState, cancel: () -> Unit, start: () -> Unit, open: (String) -> Unit, emailLogin: () -> Unit) {
     val context = androidx.compose.ui.platform.LocalContext.current
     AlertDialog(onDismissRequest = cancel, title = { Text("Connecter ${state.provider.title}") },
         text = {
@@ -76,18 +77,22 @@ private fun LoginDialog(state: LoginState, cancel: () -> Unit, start: () -> Unit
                         Text("N’utilisez que le code que vous venez de demander ici. Dans ChatGPT, la connexion par code d’appareil peut nécessiter une activation dans les réglages de sécurité.", style = MaterialTheme.typography.bodySmall)
                         LinearProgressIndicator(Modifier.fillMaxWidth())
                     }
+                    "claude" -> {
+                        Text("Terminez la connexion Claude/Google dans le navigateur système, puis revenez ici. Le retour se fait sur ce téléphone. Délai maximum : 5 minutes.")
+                        Text("Client public Claude Code · accès demandé : profil et quotas uniquement, sans génération ni historique des conversations.", style = MaterialTheme.typography.bodySmall)
+                        LinearProgressIndicator(Modifier.fillMaxWidth())
+                    }
                     "google" -> { Text("Terminez la connexion Google dans le navigateur, puis revenez ici. L’autorisation utilise le client public installé d’Antigravity ; elle n’est pas propre à QuotaDeck."); LinearProgressIndicator(Modifier.fillMaxWidth()) }
                     "working" -> { Text("Connexion en cours…"); LinearProgressIndicator(Modifier.fillMaxWidth()) }
                     else -> {
                         Text(when (state.provider) {
-                            ProviderId.CLAUDE -> "Une fenêtre sécurisée ouvre claude.ai. Connectez-vous chez Claude, puis touchez Terminer. QuotaDeck conserve uniquement la session locale pour lire les quotas. La connexion Google peut être refusée dans un navigateur intégré."
+                            ProviderId.CLAUDE -> "Claude s’ouvre dans le navigateur système, qui prend en charge Google et sa double authentification. Le retour utilise une autorisation locale avec PKCE. Ce client public Claude Code demande uniquement le scope user:profile pour lire les quotas ; cette intégration reste non officielle."
                             ProviderId.CODEX -> "OpenAI vous connecte dans votre navigateur avec un code d’appareil. Aucun mot de passe n’est saisi dans QuotaDeck."
                             ProviderId.ANTIGRAVITY -> "Google s’ouvre dans votre navigateur. Le client public Antigravity demande les accès Cloud Platform et ses scopes techniques habituels. QuotaDeck n’effectue que des lectures de quotas ; il ne crée aucun projet et n’active aucune facturation."
-                            ProviderId.OPENCODE -> "Connectez-vous sur opencode.ai, puis touchez Terminer. Si la connexion du navigateur intégré est bloquée, vous pouvez utiliser la clé Go de votre espace ; elle est testée sur l’endpoint de quotas, sans génération."
+                            ProviderId.OPENCODE -> "1. Ouvrez OpenCode dans le navigateur et connectez-vous avec Google.\n2. Copiez la clé API de votre espace Go dans la console.\n3. Revenez ici et collez-la. Une seule fois suffit.\n\nNe souscrivez rien de nouveau : utilisez votre abonnement existant. La clé sert uniquement à lire les quotas, sans génération. La session de Chrome ne peut pas être transférée automatiquement à cette app."
                         })
-                        if (state.provider == ProviderId.OPENCODE) {
-                            TextButton(onClick = { keyMode = !keyMode }) { Text(if (keyMode) "Revenir à la connexion web" else "Alternative : clé OpenCode Go") }
-                            if (keyMode) OutlinedTextField(value = key, onValueChange = { key = it }, label = { Text("Clé Go") }, visualTransformation = PasswordVisualTransformation(), singleLine = true)
+                        if (state.provider == ProviderId.CLAUDE) {
+                            TextButton(onClick = emailLogin) { Text("Alternative : connexion email intégrée") }
                         }
                     }
                 }
@@ -97,8 +102,9 @@ private fun LoginDialog(state: LoginState, cancel: () -> Unit, start: () -> Unit
             when (state.stage) {
                 "device" -> TextButton(onClick = { state.url?.let(open) }) { Text("Ouvrir OpenAI") }
                 "google" -> TextButton(onClick = { state.url?.let(open) }) { Text("Rouvrir Google") }
+                "claude" -> TextButton(onClick = { state.url?.let(open) }) { Text("Rouvrir Claude") }
                 "working" -> Unit
-                else -> TextButton(onClick = { if (keyMode) { importKey(key.trim()); key = "" } else start() }, enabled = !keyMode || key.isNotBlank()) { Text(if (keyMode) "Connecter la clé" else "Continuer chez ${state.provider.title}") }
+                else -> TextButton(onClick = start) { Text("Continuer chez ${state.provider.title}") }
             }
         },
         dismissButton = { TextButton(onClick = cancel) { Text("Annuler") } },

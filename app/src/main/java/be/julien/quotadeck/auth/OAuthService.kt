@@ -13,6 +13,9 @@ import java.util.Base64
 
 /** Public installed-client configuration, not user credentials or a private application secret. */
 object OAuthConfig {
+    const val CLAUDE_CLIENT = "9d1c250a-e61b-44d9-88ed-5944d1962f5e"
+    const val CLAUDE_AUTHORIZE = "https://claude.com/cai/oauth/authorize"
+    const val CLAUDE_TOKEN = "https://platform.claude.com/v1/oauth/token"
     const val OPENAI_CLIENT = "app_EMoamEEZ73f0CkXaXp7hrann"
     const val GOOGLE_CLIENT = "1071006060591-tmhssin2h21lcre235vtolojh4g403ep.apps.googleusercontent.com"
     const val GOOGLE_INSTALLED_CLIENT_VALUE = "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"
@@ -23,7 +26,16 @@ object OAuthConfig {
 
 data class DeviceLogin(val deviceId: String, val code: String, val intervalSeconds: Long, val startedAt: Long = System.currentTimeMillis())
 
-class OAuthService(private val api: ApiClient = ApiClient(), private val openAiBase: String = "https://auth.openai.com") {
+class OAuthService(private val api: ApiClient = ApiClient(), private val openAiBase: String = "https://auth.openai.com", private val claudeTokenUrl: String = OAuthConfig.CLAUDE_TOKEN) {
+    fun claudeUrl(redirect: String, state: String, verifier: String): String = OAuthConfig.CLAUDE_AUTHORIZE.toHttpUrl().newBuilder()
+        .addQueryParameter("code", "true").addQueryParameter("client_id", OAuthConfig.CLAUDE_CLIENT)
+        .addQueryParameter("response_type", "code").addQueryParameter("redirect_uri", redirect)
+        .addQueryParameter("scope", "user:profile").addQueryParameter("state", state)
+        .addQueryParameter("code_challenge", OAuthConfig.challenge(verifier)).addQueryParameter("code_challenge_method", "S256").build().toString()
+    suspend fun finishClaude(code: String, redirect: String, state: String, verifier: String): Credential = credential(api.post(claudeTokenUrl, buildJsonObject {
+        put("grant_type", "authorization_code"); put("code", code); put("redirect_uri", redirect)
+        put("client_id", OAuthConfig.CLAUDE_CLIENT); put("state", state); put("code_verifier", verifier)
+    }))
     suspend fun startCodex(): DeviceLogin {
         val data = api.post("$openAiBase/api/accounts/deviceauth/usercode", buildJsonObject { put("client_id", OAuthConfig.OPENAI_CLIENT) })
         return DeviceLogin(data.text("device_auth_id") ?: throw ProviderException("OpenAI ne propose pas de connexion par code actuellement."),
@@ -55,9 +67,11 @@ class OAuthService(private val api: ApiClient = ApiClient(), private val openAiB
         "grant_type" to "authorization_code", "client_id" to OAuthConfig.GOOGLE_CLIENT, "client_secret" to OAuthConfig.GOOGLE_INSTALLED_CLIENT_VALUE,
         "code" to code, "redirect_uri" to redirect, "code_verifier" to verifier)))
     suspend fun refresh(id: ProviderId, old: Credential): Credential {
-        if (id != ProviderId.CODEX && id != ProviderId.ANTIGRAVITY) return old
+        if (id != ProviderId.CODEX && id != ProviderId.ANTIGRAVITY && id != ProviderId.CLAUDE) return old
         if (old.refreshToken.isBlank()) throw ProviderException("Session expirée. Reconnectez ce compte.", needsLogin = true)
-        val response = if (id == ProviderId.CODEX) api.post("$openAiBase/oauth/token", buildJsonObject {
+        val response = if (id == ProviderId.CLAUDE) api.post(claudeTokenUrl, buildJsonObject {
+            put("client_id", OAuthConfig.CLAUDE_CLIENT); put("grant_type", "refresh_token"); put("refresh_token", old.refreshToken); put("scope", "user:profile")
+        }) else if (id == ProviderId.CODEX) api.post("$openAiBase/oauth/token", buildJsonObject {
             put("client_id", OAuthConfig.OPENAI_CLIENT); put("grant_type", "refresh_token"); put("refresh_token", old.refreshToken)
         }) else api.form("https://oauth2.googleapis.com/token", mapOf("client_id" to OAuthConfig.GOOGLE_CLIENT, "client_secret" to OAuthConfig.GOOGLE_INSTALLED_CLIENT_VALUE,
             "grant_type" to "refresh_token", "refresh_token" to old.refreshToken))

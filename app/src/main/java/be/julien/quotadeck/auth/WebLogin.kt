@@ -18,12 +18,23 @@ import kotlinx.coroutines.launch
 /** No JavaScript bridge. Only the provider's session cookie is passed to the local encrypted store. */
 @SuppressLint("SetJavaScriptEnabled")
 @Composable
-fun WebLogin(id: ProviderId, error: String?, onCookie: (String, String, ProviderSnapshot?) -> Unit, onCancel: () -> Unit) {
+fun WebLogin(id: ProviderId, error: String?, onCookie: (String, String, ProviderSnapshot?) -> Unit, onCancel: () -> Unit, onExternalLogin: () -> Unit = {}) {
     val host = if (id == ProviderId.CLAUDE) "claude.ai" else "opencode.ai"
     val start = if (id == ProviderId.CLAUDE) "https://claude.ai/login" else "https://opencode.ai/auth"
     var currentHost by remember { mutableStateOf(host) }
     var webView by remember { mutableStateOf<WebView?>(null) }
     var reading by remember { mutableStateOf(false) }
+    var notice by remember { mutableStateOf<String?>(null) }
+    var loading by remember { mutableStateOf(true) }
+    var navigation by remember { mutableIntStateOf(0) }
+    LaunchedEffect(navigation, loading) {
+        if (loading) {
+            kotlinx.coroutines.delay(45_000)
+            webView?.stopLoading()
+            loading = false
+            notice = "Chargement interrompu après 45 secondes. Utilisez la connexion dans le navigateur système ou réessayez par email."
+        }
+    }
     val scope = rememberCoroutineScope()
     fun cookie(): String = CookieManager.getInstance().getCookie("https://$host").orEmpty()
     BackHandler { if (webView?.canGoBack() == true) webView?.goBack() else onCancel() }
@@ -51,8 +62,13 @@ fun WebLogin(id: ProviderId, error: String?, onCookie: (String, String, Provider
                 }) { Text(if (reading) "Lecture…" else "Terminer") }
             }
             Text("Connexion directe · $currentHost", modifier = Modifier.padding(horizontal = 16.dp), style = MaterialTheme.typography.labelMedium)
-            Text("Email recommandé. Si Google/GitHub bloque le navigateur intégré, utilisez la page officielle ; OpenCode propose aussi une connexion par clé.", modifier = Modifier.padding(16.dp), style = MaterialTheme.typography.bodySmall)
+            Text("Connexion email uniquement. Pour Google, utilisez la connexion dans le navigateur système.", modifier = Modifier.padding(16.dp), style = MaterialTheme.typography.bodySmall)
             error?.let { Text(it, color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(horizontal = 16.dp)) }
+            notice?.let {
+                Text(it, color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(horizontal = 16.dp))
+                TextButton(onClick = onExternalLogin, modifier = Modifier.padding(horizontal = 8.dp)) { Text("Utiliser la connexion navigateur") }
+            }
+            if (loading) LinearProgressIndicator(Modifier.fillMaxWidth())
             AndroidView(modifier = Modifier.fillMaxSize(), factory = { context ->
                 WebView(context).apply {
                     webView = this
@@ -68,12 +84,42 @@ fun WebLogin(id: ProviderId, error: String?, onCookie: (String, String, Provider
                     webViewClient = object : WebViewClient() {
                         override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean {
                             val uri = request.url
-                            val remote = uri.host.orEmpty()
-                            val allowed = listOf(host, "anthropic.com", "google.com", "github.com", "githubusercontent.com").any { remote == it || remote.endsWith(".$it") }
-                            return uri.scheme != "https" || !allowed
+                            val remote = uri.host.orEmpty().lowercase()
+                            if (remote == "accounts.google.com" || remote.endsWith(".accounts.google.com") || remote == "accounts.youtube.com") {
+                                loading = false
+                                notice = "Google ne doit pas être utilisé dans ce navigateur intégré. Utilisez la connexion navigateur."
+                                view.stopLoading()
+                                return true
+                            }
+                            if (!request.isForMainFrame) return false
+                            val allowed = listOf(host, "claude.com", "anthropic.com", "github.com", "githubusercontent.com").any { remote == it || remote.endsWith(".$it") }
+                            val blocked = uri.scheme != "https" || !allowed
+                            if (blocked) {
+                                loading = false
+                                notice = "Redirection bloquée vers $remote. Utilisez la connexion navigateur."
+                            }
+                            return blocked
+                        }
+                        override fun onPageStarted(view: WebView, url: String, favicon: android.graphics.Bitmap?) {
+                            currentHost = Uri.parse(url).host.orEmpty()
+                            navigation += 1
+                            loading = true
                         }
                         override fun onPageFinished(view: WebView, url: String) {
                             currentHost = Uri.parse(url).host.orEmpty()
+                            loading = false
+                        }
+                        override fun onReceivedError(view: WebView, request: WebResourceRequest, failure: WebResourceError) {
+                            if (request.isForMainFrame) {
+                                loading = false
+                                notice = "Page de connexion inaccessible. Utilisez la connexion navigateur ou réessayez."
+                            }
+                        }
+                        override fun onReceivedHttpError(view: WebView, request: WebResourceRequest, response: WebResourceResponse) {
+                            if (request.isForMainFrame && response.statusCode >= 400) {
+                                loading = false
+                                notice = "Le fournisseur refuse la page de connexion (HTTP ${response.statusCode}). Utilisez la connexion navigateur."
+                            }
                         }
                     }
                     loadUrl(start)

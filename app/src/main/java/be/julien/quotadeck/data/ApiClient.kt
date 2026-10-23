@@ -25,7 +25,7 @@ class ApiClient(private val client: OkHttpClient = OkHttpClient.Builder()
         request(url, headers, FormBody.Builder().apply { fields.forEach { (k, v) -> add(k, v) } }.build())
     private suspend fun request(url: String, headers: Map<String, String>, body: RequestBody?): JsonElement = withContext(Dispatchers.IO) {
         val request = Request.Builder().url(url).header("Accept", "application/json")
-            .header("User-Agent", "QuotaDeck/0.1 Android")
+            .header("User-Agent", "QuotaDeck/0.1.1 Android")
             .apply { headers.forEach { (k, v) -> header(k, v) }; if (body != null) post(body) }.build()
         try {
             client.newCall(request).execute().use { response ->

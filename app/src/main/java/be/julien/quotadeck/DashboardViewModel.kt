@@ -61,7 +61,19 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
         loginJob = viewModelScope.launch {
             try {
                 when (id) {
-                    ProviderId.CLAUDE, ProviderId.OPENCODE -> _login.value = LoginState(id, "web")
+                    ProviderId.CLAUDE -> {
+                        _login.value = LoginState(id, "working")
+                        withContext(Dispatchers.IO) { LoopbackReceiver("/callback", "localhost") }.use { receiver ->
+                            val verifier = OAuthConfig.random(); val state = OAuthConfig.random()
+                            val url = oauth.claudeUrl(receiver.redirectUri, state, verifier)
+                            _login.value = LoginState(id, "claude", url = url)
+                            openUrl(url)
+                            val code = receiver.receive(state)
+                            _login.value = LoginState(id, "working")
+                            saveConnection(id, oauth.finishClaude(code, receiver.redirectUri, state, verifier))
+                        }
+                    }
+                    ProviderId.OPENCODE -> _login.value = LoginState(id, "choose")
                     ProviderId.CODEX -> {
                         _login.value = LoginState(id, "working")
                         val device = oauth.startCodex()
@@ -86,6 +98,12 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
             catch (e: Exception) { _login.value = LoginState(id, error = userMessage(e)) }
         }
     }
+    fun startEmailConnection() {
+        val id = _login.value?.provider ?: return
+        if (id != ProviderId.CLAUDE) return
+        loginJob?.cancel()
+        _login.value = LoginState(id, "web")
+    }
     fun browserCredential(cookie: String, userAgent: String, snapshot: ProviderSnapshot?) {
         val id = _login.value?.provider ?: return
         if (id != ProviderId.CLAUDE && id != ProviderId.OPENCODE) return
@@ -108,7 +126,10 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
         loginJob?.cancel()
         loginJob = viewModelScope.launch {
             _login.value = LoginState(ProviderId.OPENCODE, "working")
-            try { saveConnection(ProviderId.OPENCODE, Credential(accessToken = key)) }
+            try {
+                val (credential, snapshot) = service.fetch(ProviderId.OPENCODE, Credential(accessToken = key))
+                saveConnection(ProviderId.OPENCODE, credential, snapshot)
+            }
             catch (e: CancellationException) { throw e }
             catch (e: Exception) { _login.value = LoginState(ProviderId.OPENCODE, error = userMessage(e)) }
         }

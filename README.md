@@ -4,14 +4,14 @@ Application Android personnelle en **Kotlin / Jetpack Compose**, en français, p
 
 ## Installer
 
-Depuis les [releases privées](https://github.com/juliendevelopment/quota-deck/releases), télécharger `QuotaDeck-v0.1.0.apk`, puis autoriser son installation Android. **Android 8.0 ou plus récent** (minSdk 26). Les versions suivantes conserveront la même signature et un versionCode croissant.
+Depuis les [releases privées](https://github.com/juliendevelopment/quota-deck/releases), télécharger `QuotaDeck-v0.1.1.apk`, puis autoriser son installation Android. **Android 8.0 ou plus récent** (minSdk 26). Les versions suivantes conserveront la même signature et un versionCode croissant.
 
 ## Connexions
 
-- **Claude** : `Connecter Claude` → consentement local → connexion sur **claude.ai** dans une fenêtre intégrée → **Terminer** après la connexion. Le premier relevé est lu dans la page authentifiée du fournisseur, sans pont JavaScript natif, puis le cookie de session et le User-Agent sont enregistrés chiffrés et les cookies du navigateur intégré sont effacés. Les quotas sont lus depuis les organisations du compte et leur endpoint `usage`. Les restrictions Google/passkeys/Cloudflare peuvent empêcher cette connexion intégrée ; l’app le signale, sans contourner la protection.
+- **Claude** : `Connecter Claude` → navigateur système (Chrome ou équivalent), compatible Google/2FA → autorisation avec le **client public Claude Code** → retour `http://localhost:<port>/callback` sur **le téléphone** → jeton local chiffré et lecture de `/api/oauth/usage`. PKCE S256, contrôle de `state`, scope demandé **`user:profile` uniquement**, renouvellement du jeton. La configuration du client et l’endpoint de jeton ont été vérifiés dans le binaire officiel Claude Code installé ; cela ne constitue pas une approbation de QuotaDeck par Anthropic. Si le fournisseur refuse ce client/scope, l’app ne contourne pas son refus. Une alternative email intégrée reste disponible ; Google y est intercepté avec une explication et un bouton vers le vrai navigateur, jamais laissé tourner après la 2FA.
 - **Codex** : connexion officielle du **client public Codex** par code d’appareil, dans le navigateur système. Copier le code affiché, ouvrir OpenAI, autoriser, revenir dans l’app. ChatGPT peut exiger d’activer la connexion par code dans ses réglages de sécurité. La session est indépendante des fichiers Codex du VPS. Les jetons sont renouvelés automatiquement.
 - **Antigravity** : navigateur système Google + callback OAuth sur **127.0.0.1 du téléphone**, pas sur le VPS. Configuration publique du client installé Antigravity, PKCE et contrôle de `state`. Les scopes techniques Cloud Platform du client sont présentés avant l’ouverture. Nécessite un compte déjà initialisé dans Antigravity sur ordinateur. Aucun projet, onboarding ou service facturable n’est créé. Google peut refuser ce client sur certains comptes ; ne pas essayer de contourner ce refus.
-- **OpenCode Go** : connexion web **opencode.ai**, puis **Terminer**. Lecture des compteurs de l’espace Go (5 h, semaine, mois). Si plusieurs espaces existent, premier espace Go accessible, avec son nom affiché. Alternative : saisir la clé Go **uniquement dans l’app** ; elle ne sert qu’à appeler l’endpoint de quotas, jamais un modèle.
+- **OpenCode Go** : `Connecter OpenCode Go` → **Ouvrir OpenCode avec Google** dans le navigateur système → récupérer la clé API de l’espace Go dans la console → revenir dans QuotaDeck et coller la clé **uniquement dans l’app**, une seule fois. Aucun nouvel abonnement nécessaire. La clé sert uniquement à lire `/zen/go/v1/usage`, jamais à appeler un modèle. Les cookies Chrome ne sont pas transférables à une WebView : ouvrir simplement le même site dans Chrome ne connecterait pas l’app. L’ancien parcours Google intégré a donc été retiré du chemin principal. Les anciennes sessions déjà enregistrées restent lisibles jusqu’à expiration.
 
 **Cette version est une alpha non officielle.** Les interfaces privées/internes des fournisseurs peuvent changer. La compilation, les tests synthétiques et les tests d’interface ne prouvent pas que la connexion d’un compte personnel particulier sera acceptée. Les quatre parcours doivent être essayés avec les comptes de Julien sur son téléphone. Aucune donnée de quota fictive n’est affichée et aucun compte préconnecté n’est embarqué.
 
@@ -20,6 +20,7 @@ Depuis les [releases privées](https://github.com/juliendevelopment/quota-deck/r
 - Session et dernier relevé chiffrés en **AES-256-GCM**, clé non exportable dans **Android Keystore**.
 - Pas de sauvegarde Android des données. Aucune clé utilisateur dans Git ou l’APK.
 - Les identifiants/configurations OAuth des clients installés sont **publics et distribués par les fournisseurs**, pas des secrets personnels ni un enregistrement OAuth QuotaDeck. Leur utilisation n’est pas une approbation officielle de cette application.
+- Le SSO Google ne doit jamais être exécuté dans une WebView contrôlée par QuotaDeck. Aucun contournement par User-Agent ni assouplissement des protections Google. Les redirections refusées et les chargements web de plus de 45 secondes ont une explication visible.
 - Aucun mot de passe lu par QuotaDeck. La fenêtre web n’expose **aucun pont JavaScript**, n’a pas d’accès fichier/contenu, refuse HTTP et les erreurs TLS. Captures d’écran bloquées durant la connexion.
 - `Déconnecter` efface la session et le cache locaux. La révocation côté fournisseur se fait dans son compte. Aucune révocation automatique d’autres applications.
 - Les erreurs ne reprennent jamais le corps HTTP ni les jetons. Les redirections HTTP avec jeton/cookie ne sont pas suivies.
@@ -56,6 +57,9 @@ VersionCode : `major*10000 + minor*100 + patch` (minor et patch < 100). Ne pas p
 
 Implémentation Kotlin indépendante ; références pour les formats et endpoints :
 
+- [Politique Google : navigateurs sécurisés, sans OAuth en WebView](https://developers.google.com/identity/protocols/oauth2/policies#browsers).
+- [Authentification officielle Claude Code](https://code.claude.com/docs/en/authentication) ; le client installé 2.1.296 fournit les URLs publiques `claude.com/cai/oauth/authorize`, `platform.claude.com/v1/oauth/token` et le callback localhost.
+- [Connexion OpenCode Go par clé](https://opencode.ai/docs/go/).
 - [Codex officiel : device code auth](https://github.com/openai/codex/blob/main/codex-rs/login/src/device_code_auth.rs).
 - [CodexBar : Claude web API](https://github.com/steipete/CodexBar/blob/main/Sources/CodexBarCore/Providers/Claude/ClaudeWeb/ClaudeWebAPIFetcher.swift).
 - [CodexBar : Codex usage](https://github.com/steipete/CodexBar/blob/main/Sources/CodexBarCore/Providers/Codex/CodexOAuth/CodexOAuthUsageFetcher.swift).

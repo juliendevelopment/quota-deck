@@ -39,4 +39,30 @@ class MainActivityTest {
         assertTrue("Dashboard screenshot must contain rendered UI, not a blank canvas", sampledColors.size > 20)
         println("QA_SCREENSHOT=" + file.absolutePath)
     }
+    @Test fun claudeOpensSystemBrowserInsteadOfEmbeddingGoogle() {
+        compose.onNodeWithText("Connecter Claude").performClick()
+        compose.onNodeWithText("Continuer chez Claude").performClick()
+        compose.waitUntil(timeoutMillis = 5000) { compose.onAllNodesWithText("Rouvrir Claude").fetchSemanticsNodes().isNotEmpty() }
+        compose.onNodeWithText("Rouvrir Claude").assertIsDisplayed()
+        val app = androidx.test.core.app.ApplicationProvider.getApplicationContext<android.app.Application>()
+        val intent = org.robolectric.Shadows.shadowOf(app).nextStartedActivity
+        assertNotNull("Claude must be opened with a browser intent", intent)
+        assertEquals("claude.com", intent?.data?.host)
+        assertEquals("user:profile", intent?.data?.getQueryParameter("scope"))
+        compose.onNodeWithText("Annuler").performClick()
+    }
+    @Test fun openCodeUsesNativeKeyFormAndExternalGoogleBrowser() {
+        compose.onNodeWithTag("provider-list").performScrollToNode(hasText("Connecter OpenCode Go"))
+        compose.onNodeWithText("Connecter OpenCode Go").performClick()
+        compose.onNodeWithText("Clé API OpenCode Go").assertIsDisplayed()
+        compose.onNodeWithText("Connecter la clé").assertIsNotEnabled()
+        compose.onNodeWithText("Ouvrir OpenCode avec Google").performClick()
+        val app = androidx.test.core.app.ApplicationProvider.getApplicationContext<android.app.Application>()
+        val intent = org.robolectric.Shadows.shadowOf(app).nextStartedActivity
+        assertEquals("opencode.ai", intent?.data?.host)
+        compose.onNodeWithText("Clé API OpenCode Go").assertIsDisplayed()
+        compose.onNodeWithText("Clé API OpenCode Go").performTextInput("fixture-go-key")
+        compose.onNodeWithText("Connecter la clé").assertIsEnabled()
+        compose.onNodeWithText("Annuler").performClick()
+    }
 }

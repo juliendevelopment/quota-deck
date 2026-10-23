@@ -12,9 +12,10 @@ import java.net.URI
 import java.net.URLDecoder
 
 /** Receives only the browser's OAuth callback, on this PHONE's loopback interface. No VPS listener. */
-class LoopbackReceiver : AutoCloseable {
+class LoopbackReceiver(private val callbackPath: String = "/oauth-callback", private val callbackHost: String = "127.0.0.1") : AutoCloseable {
+    init { require(callbackPath in setOf("/oauth-callback", "/callback")); require(callbackHost in setOf("127.0.0.1", "localhost")) }
     private val server = ServerSocket(0, 1, InetAddress.getByName("127.0.0.1")).apply { soTimeout = 750 }
-    val redirectUri = "http://127.0.0.1:${server.localPort}/oauth-callback"
+    val redirectUri = "http://$callbackHost:${server.localPort}$callbackPath"
     suspend fun receive(state: String): String = withContext(Dispatchers.IO) {
         val deadline = System.currentTimeMillis() + 5 * 60_000
         while (System.currentTimeMillis() < deadline) {
@@ -23,7 +24,7 @@ class LoopbackReceiver : AutoCloseable {
             val code = socket.use { readCode(it, state) }
             if (code != null) return@withContext code
         }
-        throw ProviderException("La connexion Google a expiré. Réessayez.")
+        throw ProviderException("La connexion a expiré après 5 minutes. Réessayez.")
     }
     private fun readCode(socket: java.net.Socket, state: String): String? {
         socket.soTimeout = 2500
@@ -36,11 +37,11 @@ class LoopbackReceiver : AutoCloseable {
         }
         val path = line.toString().split(' ').getOrNull(1) ?: return null
         val uri = runCatching { URI(path) }.getOrNull() ?: return null
-        if (uri.path != "/oauth-callback") { respond(socket, false); return null }
+        if (uri.path != callbackPath) { respond(socket, false); return null }
         val params = query(uri.rawQuery)
         val valid = params["state"] == state && !params["code"].isNullOrBlank() && params["error"] == null
         respond(socket, valid)
-        if (!valid) throw ProviderException("Connexion Google annulée ou réponse de sécurité invalide.")
+        if (!valid) throw ProviderException("Connexion annulée ou réponse de sécurité invalide.")
         return params.getValue("code")
     }
     private fun respond(socket: java.net.Socket, success: Boolean) {
