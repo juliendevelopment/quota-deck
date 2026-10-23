@@ -8,7 +8,9 @@ class QuotaApplication : Application() {
     override fun onCreate() {
         super.onCreate()
         // Also clear an unfinished WebView login left behind by a killed process.
-        CookieManager.getInstance().removeAllCookies(null)
-        WebStorage.getInstance().deleteAllData()
+        runCatching {
+            CookieManager.getInstance().removeAllCookies(null)
+            WebStorage.getInstance().deleteAllData()
+        }
     }
 }

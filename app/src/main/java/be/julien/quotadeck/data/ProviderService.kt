@@ -11,7 +11,10 @@ class ProviderService(private val api: ApiClient = ApiClient()) {
         ProviderId.OPENCODE -> opencode(credential)
     }
     private suspend fun claude(c: Credential): Pair<Credential, ProviderSnapshot> {
-        val headers = mapOf("Cookie" to c.sessionCookie, "Referer" to "https://claude.ai/settings/usage")
+        val headers = buildMap {
+            put("Cookie", c.sessionCookie); put("Referer", "https://claude.ai/settings/usage")
+            if (c.userAgent.isNotBlank()) put("User-Agent", c.userAgent)
+        }
         val orgs = api.get("https://claude.ai/api/organizations", headers) as? JsonArray
             ?: throw ProviderException("Claude ne communique pas les organisations du compte.")
         val org = orgs.firstOrNull { row -> row.arr("capabilities")?.any { it.jsonPrimitive.contentOrNull == "chat" } == true } ?: orgs.firstOrNull()
@@ -52,7 +55,10 @@ class ProviderService(private val api: ApiClient = ApiClient()) {
     }
     private suspend fun opencode(c: Credential): Pair<Credential, ProviderSnapshot> {
         if (c.accessToken.isNotBlank()) return c to QuotaParsers.opencode(api.get("https://opencode.ai/zen/go/v1/usage", mapOf("Authorization" to "Bearer ${c.accessToken}")), apiKey = true)
-        val headers = mapOf("Cookie" to c.sessionCookie, "Origin" to "https://opencode.ai", "Referer" to "https://opencode.ai/console")
+        val headers = buildMap {
+            put("Cookie", c.sessionCookie); put("Origin", "https://opencode.ai"); put("Referer", "https://opencode.ai/console")
+            if (c.userAgent.isNotBlank()) put("User-Agent", c.userAgent)
+        }
         val orgs = api.get("https://opencode.ai/console/api/orgs", headers) as? JsonArray ?: throw ProviderException("Liste des espaces OpenCode indisponible.")
         val candidates = orgs.filter { it.text("id")?.matches(Regex("(?:org_|wrk_)[A-Za-z0-9_-]+")) == true }
             .sortedBy { if (it.text("id") == c.accountId) 0 else 1 }.take(10)

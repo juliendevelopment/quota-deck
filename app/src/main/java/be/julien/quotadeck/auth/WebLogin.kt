@@ -11,15 +11,20 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import be.julien.quotadeck.core.ProviderId
+import be.julien.quotadeck.core.ProviderSnapshot
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.launch
 
 /** No JavaScript bridge. Only the provider's session cookie is passed to the local encrypted store. */
 @SuppressLint("SetJavaScriptEnabled")
 @Composable
-fun WebLogin(id: ProviderId, error: String?, onCookie: (String) -> Unit, onCancel: () -> Unit) {
+fun WebLogin(id: ProviderId, error: String?, onCookie: (String, String, ProviderSnapshot?) -> Unit, onCancel: () -> Unit) {
     val host = if (id == ProviderId.CLAUDE) "claude.ai" else "opencode.ai"
     val start = if (id == ProviderId.CLAUDE) "https://claude.ai/login" else "https://opencode.ai/auth"
     var currentHost by remember { mutableStateOf(host) }
     var webView by remember { mutableStateOf<WebView?>(null) }
+    var reading by remember { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
     fun cookie(): String = CookieManager.getInstance().getCookie("https://$host").orEmpty()
     BackHandler { if (webView?.canGoBack() == true) webView?.goBack() else onCancel() }
     DisposableEffect(Unit) {
@@ -34,7 +39,16 @@ fun WebLogin(id: ProviderId, error: String?, onCookie: (String) -> Unit, onCance
         Column(Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding()) {
             Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp), horizontalArrangement = Arrangement.SpaceBetween) {
                 TextButton(onClick = onCancel) { Text("Fermer") }
-                TextButton(onClick = { onCookie(cookie()) }) { Text("Terminer") }
+                TextButton(enabled = !reading, onClick = {
+                    val view = webView ?: return@TextButton
+                    reading = true
+                    scope.launch {
+                        try {
+                            val snapshot = try { WebSessionReader.read(view, id) } catch (e: CancellationException) { throw e } catch (_: Exception) { null }
+                            onCookie(cookie(), view.settings.userAgentString, snapshot)
+                        } finally { reading = false }
+                    }
+                }) { Text(if (reading) "Lecture…" else "Terminer") }
             }
             Text("Connexion directe · $currentHost", modifier = Modifier.padding(horizontal = 16.dp), style = MaterialTheme.typography.labelMedium)
             Text("Email recommandé. Si Google/GitHub bloque le navigateur intégré, utilisez la page officielle ; OpenCode propose aussi une connexion par clé.", modifier = Modifier.padding(16.dp), style = MaterialTheme.typography.bodySmall)

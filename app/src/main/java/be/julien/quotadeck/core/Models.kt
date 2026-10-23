@@ -39,6 +39,7 @@ data class Credential(
     val sessionCookie: String = "",
     val accountId: String = "",
     val projectId: String = "",
+    val userAgent: String = "",
 )
 
 data class ProviderState(

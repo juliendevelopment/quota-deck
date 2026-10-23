@@ -86,16 +86,18 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
             catch (e: Exception) { _login.value = LoginState(id, error = userMessage(e)) }
         }
     }
-    fun browserCredential(cookie: String) {
+    fun browserCredential(cookie: String, userAgent: String, snapshot: ProviderSnapshot?) {
         val id = _login.value?.provider ?: return
         if (id != ProviderId.CLAUDE && id != ProviderId.OPENCODE) return
-        if (cookie.isBlank() || cookie.contains('\n') || cookie.contains('\r')) {
+        val allowedNames = if (id == ProviderId.CLAUDE) setOf("sessionKey") else setOf("auth", "__Host-auth", "__Host-console_session")
+        val hasSession = cookie.split(';').any { pair -> pair.substringBefore('=').trim() in allowedNames && pair.substringAfter('=', "").isNotBlank() }
+        if (!hasSession || cookie.contains('\n') || cookie.contains('\r')) {
             _login.value = LoginState(id, "web", error = "Aucune session détectée. Terminez la connexion chez le fournisseur."); return
         }
         loginJob?.cancel()
         loginJob = viewModelScope.launch {
             _login.value = LoginState(id, "working")
-            try { saveConnection(id, Credential(sessionCookie = cookie)) }
+            try { saveConnection(id, Credential(sessionCookie = cookie, userAgent = userAgent), snapshot) }
             catch (e: CancellationException) { throw e }
             catch (e: Exception) { _login.value = LoginState(id, "web", error = userMessage(e)) }
         }
@@ -111,15 +113,16 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
             catch (e: Exception) { _login.value = LoginState(ProviderId.OPENCODE, error = userMessage(e)) }
         }
     }
-    private suspend fun saveConnection(id: ProviderId, credential: Credential) {
+    private suspend fun saveConnection(id: ProviderId, credential: Credential, snapshot: ProviderSnapshot? = null) {
         // Keep the established session even when a provider temporarily refuses quota access.
         // The error stays explicit: connected never means quota successfully read.
         jobs.remove(id)?.cancelAndJoin()
+        store.forget(id)
         store.save(id, credential)
-        store.snapshot(id)?.let { store.forget(id); store.save(id, credential) }
-        state(id) { ProviderState(id, connected = true, loading = true) }
+        if (snapshot != null) store.save(snapshot)
+        state(id) { ProviderState(id, connected = true, snapshot = snapshot) }
         _login.value = null
-        refresh(id)
+        if (snapshot == null) refresh(id)
     }
     private fun userMessage(e: Exception): String = if (e is ProviderException) e.message ?: "Erreur du fournisseur." else "Connexion interrompue ou format inattendu. Réessayez ou consultez la page officielle."
 }
