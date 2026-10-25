@@ -8,6 +8,9 @@ Provider interfaces and installed-client integrations are unofficial. Accounts a
 
 ## Install
 
+For the easiest path, read [INSTALL.md](INSTALL.md) in this directory. It covers downloading the ready-made bundle, running `python3 install.py`, logging out/back in, enabling the extension and connecting providers.
+
+
 Use a desktop running a supported GNOME Shell version (`gnome-shell --version`), with **GJS, libsoup 3, libsecret 1, GTK4, libadwaita >= 1.8 and an unlocked Secret Service default keyring**. A normal GNOME installation supplies most of these. On Fedora, missing runtime packages can be installed with:
 
 ```sh
