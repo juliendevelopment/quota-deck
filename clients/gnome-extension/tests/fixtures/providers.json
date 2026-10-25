@@ -1,0 +1,9 @@
+{
+  "provenance": "Explicitly synthetic protocol examples, adapted from Android QuotaParsersTest. Not captured accounts, screenshots or runtime fallbacks.",
+  "now": 1792749600000,
+  "claude": {"five_hour":{"utilization":25,"resets_at":"2026-10-24T10:00:00Z"},"seven_day":{"utilization":null},"seven_day_sonnet":{"utilization":100},"limits":[{"scope":{"model":{"display_name":"Model <User Name>"}},"utilization":50}]},
+  "codex": {"plan_type":"plus","rate_limit":{"primary_window":{"used_percent":64,"reset_at":1792836000,"limit_window_seconds":18000},"secondary_window":{}},"additional_rate_limits":[{"limit_name":"User Workspace","rate_limit":{"primary_window":{"used_percent":10}}}],"code_review_rate_limit":{"primary_window":{"used_percent":0}},"credits":{"balance":"12.50"}},
+  "antigravity": {"response":{"groups":[{"displayName":"Pro","buckets":[{"bucketId":"model-a","displayName":"Gemini","remaining":{"case":"remainingFraction","value":0.42},"resetTime":"2026-10-24T10:00:00Z"},{"bucketId":"model-b","disabled":true,"remainingFraction":1}]}]}},
+  "models": {"models":{"fixture-model":{"displayName":"User Model","quotaInfo":{"remainingFraction":1,"resetTime":"2026-10-24T10:00:00Z"}}}},
+  "opencode": {"usage":{"rolling":{"usagePercent":0.5,"resetInSec":60},"weekly":{"usedMicroCents":150,"limitMicroCents":200},"monthly":{"usagePercent":null}}}
+}

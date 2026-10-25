@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<schemalist>
+  <schema id="org.gnome.shell.extensions.quotadeck" path="/org/gnome/shell/extensions/quotadeck/">
+    <key name="refresh-minutes" type="u">
+      <default>15</default><range min="5" max="1440"/>
+      <summary>Automatic refresh interval in minutes</summary>
+    </key>
+    <key name="automatic-refresh" type="b">
+      <default>true</default><summary>Refresh connected accounts periodically</summary>
+    </key>
+    <key name="panel-provider" type="s">
+      <default>'CLAUDE'</default>
+      <choices><choice value="CLAUDE"/><choice value="CODEX"/><choice value="ANTIGRAVITY"/><choice value="OPENCODE"/></choices>
+      <summary>Provider whose first quota window appears in the panel</summary>
+    </key>
+    <key name="show-identity" type="b">
+      <default>false</default><summary>Show provider-reported account context in the menu</summary>
+    </key>
+  </schema>
+</schemalist>
