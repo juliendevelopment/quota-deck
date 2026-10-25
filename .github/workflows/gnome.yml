@@ -29,6 +29,9 @@ jobs:
           git nodejs npm gjs gnome-shell gnome-keyring libsecret libadwaita python3
           dbus-daemon xorg-x11-server-Xvfb xorg-x11-xauth mesa-dri-drivers mesa-libEGL dejavu-sans-fonts
       - uses: actions/checkout@v4
+      - name: Create an unprivileged account for GNOME and keyring tests
+        run: |
+          useradd -m -u 1000 quotadeck 2>/dev/null || true
       - name: Start an isolated container system bus for headless Shell
         run: |
           mkdir -p /run/dbus
@@ -40,8 +43,12 @@ jobs:
         run: npm ci --ignore-scripts
       - name: Test providers, privacy, lifecycle, GJS, keyring, GTK and real headless Shell; package
         env:
-          TMPDIR: ${{ runner.temp }}
-        run: python3 scripts/verify.py --shell
+          TMPDIR: /tmp/quotadeck-scratchpad
+        run: |
+          mkdir -p /tmp/quotadeck-scratchpad
+          chown -R quotadeck:quotadeck .
+          chown quotadeck:quotadeck /tmp/quotadeck-scratchpad
+          runuser -u quotadeck -- env TMPDIR=/tmp/quotadeck-scratchpad python3 scripts/verify.py --shell
       - name: Installable GNOME archive and checksum
         uses: actions/upload-artifact@v4
         with:
