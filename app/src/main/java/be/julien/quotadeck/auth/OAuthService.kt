@@ -39,24 +39,59 @@ class OAuthService(private val api: ApiClient = ApiClient(), private val openAiB
     suspend fun startCodex(): DeviceLogin {
         val data = api.post("$openAiBase/api/accounts/deviceauth/usercode", buildJsonObject { put("client_id", OAuthConfig.OPENAI_CLIENT) })
         return DeviceLogin(data.text("device_auth_id") ?: throw ProviderException("OpenAI ne propose pas de connexion par code actuellement."),
-            data.text("user_code") ?: data.text("usercode") ?: throw ProviderException("Code OpenAI manquant."), (data.long("interval") ?: 5).coerceIn(5, 30))
+            data.text("user_code") ?: data.text("usercode") ?: throw ProviderException("Code OpenAI manquant."), (data.text("interval")?.trim()?.toLongOrNull() ?: 5).coerceIn(5, 15 * 60))
     }
-    suspend fun finishCodex(login: DeviceLogin): Credential {
-        while (System.currentTimeMillis() - login.startedAt < 15 * 60_000) {
+    suspend fun finishCodex(
+        login: DeviceLogin,
+        beforeRequest: suspend (remainingMillis: Long) -> Unit = {},
+        onPhase: (AuthPhase) -> Unit = {},
+        onRetry: (ProviderException) -> Unit = {},
+    ): Credential {
+        val baseInterval = login.intervalSeconds.coerceIn(5, 15 * 60) * 1000
+        var interval = baseInterval
+        var transientFailures = 0
+        val available = (15 * 60_000L - (System.currentTimeMillis() - login.startedAt)).coerceIn(0, 15 * 60_000L)
+        val startedNanos = System.nanoTime()
+        fun remaining() = (available - (System.nanoTime() - startedNanos) / 1_000_000).coerceAtLeast(0)
+        fun expired() = ProviderException("Le code OpenAI a expiré. Relancez la connexion.", safeErrorCode = "expired_token")
+        while (remaining() > 0) {
             currentCoroutineContext().ensureActive()
+            beforeRequest(remaining())
+            if (remaining() <= 0) throw expired()
+            onPhase(AuthPhase.DEVICE_POLL)
             val data = try {
                 api.post("$openAiBase/api/accounts/deviceauth/token", buildJsonObject { put("device_auth_id", login.deviceId); put("user_code", login.code) })
             } catch (e: ProviderException) {
-                if (e.httpCode == 403 || e.httpCode == 404 || e.httpCode == 429) { delay(login.intervalSeconds * 1000); continue }
-                throw e
+                // An explicit refusal must never be swallowed as a pending 403/404.
+                if (e.safeErrorCode in setOf("access_denied", "expired_token", "invalid_grant", "invalid_client", "unauthorized_client")) throw e
+                val pending = e.safeErrorCode == "authorization_pending" || e.httpCode == 403 || e.httpCode == 404
+                val retryable = e.networkFailure != null || e.httpCode == 408 || e.httpCode == 429 ||
+                    (e.httpCode != null && e.httpCode in 500..599) || e.safeErrorCode in setOf("slow_down", "temporarily_unavailable")
+                if (!pending && !retryable) throw e
+                val waitMillis = if (pending && !retryable) {
+                    transientFailures = 0
+                    interval
+                } else {
+                    onRetry(e)
+                    if (e.httpCode == 429 || e.safeErrorCode == "slow_down") interval = (interval + 5_000).coerceAtMost(15 * 60_000L)
+                    val backoff = maxOf(interval, (baseInterval * (1L shl transientFailures.coerceAtMost(4))).coerceAtMost(maxOf(baseInterval, 60_000)))
+                    transientFailures++
+                    maxOf(backoff, e.retryAfterMillis ?: 0)
+                }
+                delay(minOf(waitMillis, remaining()))
+                continue
             }
-            val code = data.text("authorization_code") ?: throw ProviderException("Autorisation OpenAI incomplète.")
-            val verifier = data.text("code_verifier") ?: throw ProviderException("Validation OpenAI incomplète.")
+            val code = data.text("authorization_code")?.takeIf { it.isNotBlank() } ?: throw ProviderException("Autorisation OpenAI incomplète.")
+            val verifier = data.text("code_verifier")?.takeIf { it.isNotBlank() } ?: throw ProviderException("Validation OpenAI incomplète.")
+            beforeRequest(remaining())
+            if (remaining() <= 0) throw expired()
+            onPhase(AuthPhase.TOKEN_EXCHANGE)
+            // This single-use exchange is intentionally outside the retry loop's catch.
             val tokens = api.form("$openAiBase/oauth/token", mapOf("grant_type" to "authorization_code", "client_id" to OAuthConfig.OPENAI_CLIENT,
-                "code" to code, "code_verifier" to verifier, "redirect_uri" to "$openAiBase/deviceauth/callback"))
+                "code" to code, "code_verifier" to verifier, "redirect_uri" to "$openAiBase/deviceauth/callback"), singleUse = true)
             return credential(tokens)
         }
-        throw ProviderException("Le code OpenAI a expiré. Relancez la connexion.")
+        throw expired()
     }
     fun googleUrl(redirect: String, state: String, verifier: String): String = "https://accounts.google.com/o/oauth2/v2/auth".toHttpUrl().newBuilder()
         .addQueryParameter("client_id", OAuthConfig.GOOGLE_CLIENT).addQueryParameter("redirect_uri", redirect)
@@ -76,12 +111,16 @@ class OAuthService(private val api: ApiClient = ApiClient(), private val openAiB
         }) else api.form(googleTokenUrl, mapOf("client_id" to OAuthConfig.GOOGLE_CLIENT, "client_secret" to OAuthConfig.GOOGLE_INSTALLED_CLIENT_VALUE,
             "grant_type" to "refresh_token", "refresh_token" to old.refreshToken))
         val updated = credential(response)
-        return updated.copy(refreshToken = updated.refreshToken.ifBlank { old.refreshToken }, accountId = old.accountId, projectId = old.projectId)
+        return updated.copy(refreshToken = updated.refreshToken.ifBlank { old.refreshToken }, accountId = old.accountId.ifBlank { updated.accountId }, projectId = old.projectId)
     }
     private fun credential(data: JsonElement): Credential {
         val token = data.text("access_token")?.takeIf { it.isNotBlank() } ?: throw ProviderException("Le fournisseur n’a pas renvoyé de session valide.")
-        val claims = token.split('.').getOrNull(1)?.let { payload -> runCatching { Json.parseToJsonElement(Base64.getUrlDecoder().decode(payload).toString(Charsets.UTF_8)) }.getOrNull() }
-        val account = claims?.obj("https://api.openai.com/auth")?.text("chatgpt_account_id") ?: ""
+        fun claims(value: String?): JsonElement? = value?.split('.')?.getOrNull(1)?.let { payload ->
+            runCatching { Json.parseToJsonElement(Base64.getUrlDecoder().decode(payload).toString(Charsets.UTF_8)) }.getOrNull()
+        }
+        // Like Codex itself, use the identity-token workspace. Access tokens may be opaque.
+        val account = claims(data.text("id_token"))?.obj("https://api.openai.com/auth")?.text("chatgpt_account_id")?.takeIf { it.isNotBlank() }
+            ?: claims(token)?.obj("https://api.openai.com/auth")?.text("chatgpt_account_id") ?: ""
         return Credential(accessToken = token, refreshToken = data.text("refresh_token") ?: "", expiresAt = System.currentTimeMillis() + (data.long("expires_in") ?: 3600) * 1000, accountId = account)
     }
 }

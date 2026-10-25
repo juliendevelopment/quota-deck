@@ -1,17 +1,20 @@
-## QuotaDeck 0.1.2 — finalisation après le retour du navigateur
+## QuotaDeck 0.1.3 — reprise de la connexion Codex
 
-Installez cet APK **par-dessus la version actuelle, sans désinstaller**. Même clé de signature, versionCode 102. Le connecteur OpenCode Go et les données chiffrées existantes sont conservés.
+Installer **par-dessus la version actuelle, sans désinstaller**. Même clé de signature, versionCode 103. Les sessions existantes restent conservées ; pas de changement des connecteurs Claude, Antigravity et OpenCode Go.
 
-### Changements
+### Codex
 
-- **Claude et Google Antigravity** : après réception du callback, l’app attend d’être au premier plan avant d’appeler l’endpoint de jeton. Le parcours ne dépend plus de requêtes réseau lancées pendant que Chrome est affiché.
-- **Page localhost** : « Autorisation reçue » au lieu d’une connexion prématurément annoncée comme terminée. Un grand bouton **Revenir dans QuotaDeck** ramène à l’activité existante, sans transporter de code ou de jeton dans le lien. Fermer l’onglet et revenir manuellement reste possible.
-- **Finalisation visible** : réception de l’autorisation, échange du jeton, stockage chiffré et lecture des quotas sont distingués. La session n’est pas déclarée connectée à la seule réception du callback.
-- **Erreurs exploitables** : DNS, TLS/certificat, délai réseau ou accès réseau restreint sont distingués. **Copier le diagnostic** fournit uniquement des métadonnées autorisées : version, étape, catégorie réseau, endpoint sans query et éventuel statut HTTP/code OAuth.
-- **Captures d’écran** : autorisées pour les erreurs OAuth sans secret. Les champs de clé API, le code d’appareil et la connexion web restent protégés.
+- Après saisie du code et confirmation chez OpenAI, fermer l’onglet avec **× / Retour**, ou choisir **⋮ → Revenir dans QuotaDeck**. OpenAI ne redirige pas automatiquement le flux par code d’appareil vers une application tierce.
+- Le polling reprend au premier plan au lieu d’échouer pendant l’affichage de Chrome. La même demande reste en mémoire durant le parcours ; aucune nouvelle demande de code n’est faite au retour.
+- Une erreur temporaire de polling est réessayée avec backoff et respect de Retry-After. Le refus explicite, l’expiration et l’annulation restent terminaux. Pas de boucle infinie ni de polling agressif.
+- L’intervalle donné par OpenAI est respecté, y compris au-delà de 30 secondes. La tentative est bornée à 15 minutes, avec une horloge monotone pendant la vérification.
+- Demande du code, vérification OpenAI, échange du jeton, enregistrement et lecture des quotas sont distingués. Le diagnostic copiable reste sans code d’appareil, jeton ni données de compte.
+- L’échange final est marqué à usage unique côté client HTTP et n’est pas rejoué aveuglément après une réponse réseau incertaine.
+- Le code copié est marqué sensible pour éviter son aperçu dans le presse-papiers Android récent.
+- L’identifiant de l’espace ChatGPT est extrait du jeton d’identité, comme dans le client officiel, y compris avec un jeton d’accès opaque. Il accompagne la lecture des quotas et reste hors du diagnostic partageable ; une sélection existante n’est pas changée silencieusement lors du renouvellement.
 
 ### Vérification et limites
 
-Les régressions couvrent le vrai ViewModel avec callback HTTP et échange de jeton simulé pour les deux fournisseurs, un réseau refusé en arrière-plan, le retour dans la même tâche Android, les captures d’erreur et la copie d’un diagnostic sans secret. Les endpoints réels de jetons ont répondu aux sondes anonymes négatives ; cela ne valide aucune connexion de compte.
+Le protocole a été comparé au client officiel Codex. Les tests exercent le vrai ViewModel, le polling et l’échange HTTP sur serveur local avec fixtures, le retour au premier plan, les erreurs réseau, le refus, l’expiration, l’annulation et le menu navigateur. Les tests ne constituent pas une connexion réelle à un compte.
 
-Le blocage réseau en arrière-plan est une cause plausible du message observé, pas une cause prouvée sur le téléphone de Julien. La connexion et l’accès aux quotas de ses comptes réels restent à confirmer sur son appareil. En cas d’échec, partager uniquement le diagnostic copié, jamais une clé, un mot de passe, un code de connexion ou un jeton.
+L’erreur exacte du téléphone n’a pas été obtenue. Ces défauts sont reproduits et corrigés dans l’app, mais la connexion de Julien et l’accès à ses quotas restent à confirmer sur son appareil. Ne partager que le diagnostic copié, jamais le code d’appareil ni un jeton. Une destruction du processus pendant le navigateur nécessite une nouvelle tentative ; aucun secret de tentative n’est persisté pour contourner cela.

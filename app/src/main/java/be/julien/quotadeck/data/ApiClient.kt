@@ -18,7 +18,8 @@ import javax.net.ssl.SSLException
 import java.util.concurrent.TimeUnit
 
 class ProviderException(message: String, val needsLogin: Boolean = false, val httpCode: Int? = null,
-    val safeErrorCode: String? = null, val networkFailure: NetworkFailure? = null, val endpoint: String? = null) : IOException(message)
+    val safeErrorCode: String? = null, val networkFailure: NetworkFailure? = null, val endpoint: String? = null,
+    val retryAfterMillis: Long? = null) : IOException(message)
 
 class ApiClient(private val client: OkHttpClient = OkHttpClient.Builder()
     .connectTimeout(20, TimeUnit.SECONDS).readTimeout(30, TimeUnit.SECONDS)
@@ -27,11 +28,19 @@ class ApiClient(private val client: OkHttpClient = OkHttpClient.Builder()
     suspend fun get(url: String, headers: Map<String, String> = emptyMap()): JsonElement = request(url, headers, null)
     suspend fun post(url: String, body: JsonElement, headers: Map<String, String> = emptyMap()): JsonElement =
         request(url, headers, body.toString().toRequestBody("application/json; charset=utf-8".toMediaType()))
-    suspend fun form(url: String, fields: Map<String, String>, headers: Map<String, String> = emptyMap()): JsonElement =
-        request(url, headers, FormBody.Builder().apply { fields.forEach { (k, v) -> add(k, v) } }.build())
+    suspend fun form(url: String, fields: Map<String, String>, headers: Map<String, String> = emptyMap(), singleUse: Boolean = false): JsonElement {
+        val form = FormBody.Builder().apply { fields.forEach { (k, v) -> add(k, v) } }.build()
+        val body = if (!singleUse) form else object : RequestBody() {
+            override fun contentType() = form.contentType()
+            override fun contentLength() = form.contentLength()
+            override fun writeTo(sink: okio.BufferedSink) = form.writeTo(sink)
+            override fun isOneShot() = true
+        }
+        return request(url, headers, body)
+    }
     private suspend fun request(url: String, headers: Map<String, String>, body: RequestBody?): JsonElement = withContext(Dispatchers.IO) {
         val request = Request.Builder().url(url).header("Accept", "application/json")
-            .header("User-Agent", "QuotaDeck/0.1.2 Android")
+            .header("User-Agent", "QuotaDeck/${be.julien.quotadeck.BuildConfig.VERSION_NAME} Android")
             .apply { headers.forEach { (k, v) -> header(k, v) }; if (body != null) post(body) }.build()
         val endpoint = request.url.host + request.url.encodedPath
             .replace(Regex("/[A-Fa-f0-9-]{20,}"), "/{id}")
@@ -40,12 +49,13 @@ class ApiClient(private val client: OkHttpClient = OkHttpClient.Builder()
             client.newCall(request).execute().use { response ->
                 if (!response.isSuccessful) {
                     val root = runCatching { json.parseToJsonElement(response.peekBody(8192).string()) }.getOrNull()
-                    val oauthCode = (root?.text("error") ?: root?.obj("error")?.text("type"))?.takeIf { it in FailureReport.oauthCodes }
+                    val oauthCode = listOfNotNull(root?.text("error"), root?.obj("error")?.text("code"), root?.obj("error")?.text("type")).firstOrNull { it in FailureReport.oauthCodes }
                     val message = when (oauthCode) {
                         "invalid_grant" -> "Le code de connexion est expiré, déjà utilisé ou ne correspond pas à cette demande. [invalid_grant]"
                         "invalid_client", "unauthorized_client" -> "Le fournisseur refuse ce client OAuth. [$oauthCode]"
                         "invalid_scope", "insufficient_scope" -> "Le fournisseur refuse les autorisations de lecture demandées. [$oauthCode]"
                         "access_denied" -> "Autorisation refusée par le fournisseur. [access_denied]"
+                        "expired_token" -> "Le code d’appareil a expiré. Relancez la connexion. [expired_token]"
                         else -> when (response.code) {
                         401 -> "Session expirée. Reconnectez ce compte."
                         403 -> "Accès refusé par le fournisseur (403). Essayez une reconnexion ou consultez la page officielle."
@@ -54,7 +64,11 @@ class ApiClient(private val client: OkHttpClient = OkHttpClient.Builder()
                         else -> "Le fournisseur est indisponible (HTTP ${response.code})."
                         }
                     }
-                    throw ProviderException(message, response.code == 401 || response.code in 300..399, response.code, oauthCode, endpoint = endpoint)
+                    val retryAfter = response.header("Retry-After")?.let { raw ->
+                        raw.trim().toLongOrNull()?.coerceIn(0, 86_400)?.times(1000)
+                            ?: runCatching { (java.time.ZonedDateTime.parse(raw, java.time.format.DateTimeFormatter.RFC_1123_DATE_TIME).toInstant().toEpochMilli() - System.currentTimeMillis()).coerceIn(0, 86_400_000) }.getOrNull()
+                    }
+                    throw ProviderException(message, response.code == 401 || response.code in 300..399, response.code, oauthCode, endpoint = endpoint, retryAfterMillis = retryAfter)
                 }
                 val text = response.body?.string() ?: throw ProviderException("Réponse vide du fournisseur.")
                 if (text.length > 4_000_000) throw ProviderException("Réponse du fournisseur trop volumineuse.")

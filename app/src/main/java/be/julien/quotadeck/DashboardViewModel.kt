@@ -95,12 +95,34 @@ class DashboardViewModel @JvmOverloads constructor(application: Application,
                     }
                     ProviderId.OPENCODE -> _login.value = LoginState(id, "choose")
                     ProviderId.CODEX -> {
-                        _login.value = LoginState(id, "working")
+                        phase = AuthPhase.DEVICE_CODE
+                        _login.value = LoginState(id, "working", phase = phase)
                         val device = oauth.startCodex()
-                        _login.value = LoginState(id, "device", device = device, url = "https://auth.openai.com/codex/device")
-                        phase = AuthPhase.TOKEN_EXCHANGE
-                        val credential = oauth.finishCodex(device)
+                        val verification = "https://auth.openai.com/codex/device"
+                        phase = AuthPhase.BROWSER
+                        _login.value = LoginState(id, "device", device = device, url = verification, phase = phase)
+                        val credential = oauth.finishCodex(device,
+                            beforeRequest = { remaining ->
+                                if (!uiActive.value) {
+                                    phase = AuthPhase.BROWSER
+                                    _login.value = _login.value?.copy(phase = phase)
+                                }
+                                val ready = withTimeoutOrNull(remaining.coerceAtLeast(1)) { uiActive.first { it }; true } ?: false
+                                if (!ready) throw ProviderException("Le code OpenAI a expiré. Relancez la connexion.", safeErrorCode = "expired_token")
+                            },
+                            onPhase = { next ->
+                                phase = next
+                                _login.value = if (next == AuthPhase.TOKEN_EXCHANGE) LoginState(id, "working", phase = next)
+                                    else LoginState(id, "device", device = device, url = verification, phase = next)
+                            },
+                            onRetry = { error ->
+                                _login.value = LoginState(id, "device", device = device, url = verification, phase = phase,
+                                    error = "Vérification momentanément interrompue. Le code reste conservé et une nouvelle tentative est prévue. ${userMessage(error)}",
+                                    diagnostic = diagnostic(id, phase, error))
+                            },
+                        )
                         phase = AuthPhase.SAVE_SESSION
+                        _login.value = LoginState(id, "working", phase = phase)
                         saveConnection(id, credential)
                     }
                     ProviderId.ANTIGRAVITY -> {

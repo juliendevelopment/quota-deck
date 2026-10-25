@@ -66,8 +66,22 @@ class MainActivity : ComponentActivity() {
     private fun openUrl(url: String) {
         val uri = Uri.parse(url)
         if (uri.scheme != "https") return
-        runCatching { CustomTabsIntent.Builder().build().launchUrl(this, uri) }
+        runCatching { providerBrowserIntent(this, uri).launchUrl(this, uri) }
     }
+}
+
+internal fun providerBrowserIntent(context: Context, uri: Uri): CustomTabsIntent {
+    val builder = CustomTabsIntent.Builder()
+    if (uri.scheme == "https" && uri.host == "auth.openai.com" && uri.path?.trimEnd('/') == "/codex/device") {
+        val navigation = android.content.Intent(context, MainActivity::class.java)
+            .setAction(android.content.Intent.ACTION_VIEW)
+            .setData(Uri.parse("quotadeck://oauth/return"))
+            .addFlags(android.content.Intent.FLAG_ACTIVITY_CLEAR_TOP or android.content.Intent.FLAG_ACTIVITY_SINGLE_TOP)
+        val back = android.app.PendingIntent.getActivity(context, 0x434458, navigation,
+            android.app.PendingIntent.FLAG_UPDATE_CURRENT or android.app.PendingIntent.FLAG_IMMUTABLE)
+        builder.addMenuItem("Revenir dans QuotaDeck", back)
+    }
+    return builder.build()
 }
 
 private fun copyDiagnostic(context: Context, diagnostic: String) {
@@ -90,10 +104,15 @@ private fun LoginDialog(state: LoginState, cancel: () -> Unit, start: () -> Unit
                 }
                 when (state.stage) {
                     "device" -> {
-                        Text("1. Copiez le code.\n2. Ouvrez OpenAI, connectez-vous et autorisez le code.\n3. Revenez ici : la connexion se termine automatiquement.")
+                        Text("1. Copiez le code.\n2. Ouvrez OpenAI et terminez l’autorisation jusqu’au message de réussite.\n3. Fermez l’onglet avec × ou Retour, ou utilisez le menu ⋮ → Revenir dans QuotaDeck. La vérification reprend dans l’app ; OpenAI ne redirige pas automatiquement vers elle.")
                         SelectionContainer { Text(state.device?.code.orEmpty(), style = MaterialTheme.typography.headlineMedium) }
-                        TextButton(onClick = { (context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager).setPrimaryClip(ClipData.newPlainText("Code OpenAI", state.device?.code)) }) { Text("Copier le code") }
-                        Text("N’utilisez que le code que vous venez de demander ici. Dans ChatGPT, la connexion par code d’appareil peut nécessiter une activation dans les réglages de sécurité.", style = MaterialTheme.typography.bodySmall)
+                        TextButton(onClick = {
+                            val clip = ClipData.newPlainText("Code OpenAI", state.device?.code)
+                            if (android.os.Build.VERSION.SDK_INT >= 33) clip.description.extras = android.os.PersistableBundle().apply { putBoolean(android.content.ClipDescription.EXTRA_IS_SENSITIVE, true) }
+                            (context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager).setPrimaryClip(clip)
+                        }) { Text("Copier le code") }
+                        Text("Le même code est conservé pendant la tentative (15 minutes maximum). Ne recommencez pas une nouvelle connexion après l’avoir validé. Dans ChatGPT, la connexion par code d’appareil peut nécessiter une activation dans les réglages de sécurité.", style = MaterialTheme.typography.bodySmall)
+                        Text("Étape : ${state.phase.label}", style = MaterialTheme.typography.bodySmall)
                         LinearProgressIndicator(Modifier.fillMaxWidth())
                     }
                     "claude" -> {

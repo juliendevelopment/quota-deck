@@ -6,7 +6,7 @@ import be.julien.quotadeck.core.*
 object FailureReport {
     val oauthCodes = setOf("invalid_grant", "invalid_client", "invalid_request", "invalid_scope", "access_denied",
         "unauthorized_client", "unsupported_grant_type", "temporarily_unavailable", "server_error", "permission_error",
-        "authentication_error", "insufficient_scope", "rate_limit_exceeded")
+        "authentication_error", "insufficient_scope", "rate_limit_exceeded", "authorization_pending", "slow_down", "expired_token")
     fun format(provider: ProviderId, phase: AuthPhase, error: Exception, version: String, android: Int): String {
         val e = error as? ProviderException
         val code = e?.safeErrorCode?.takeIf { it in oauthCodes } ?: "non-renseigne"
