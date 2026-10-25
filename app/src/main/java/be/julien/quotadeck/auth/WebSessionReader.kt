@@ -12,7 +12,7 @@ import kotlin.coroutines.resume
 object WebSessionReader {
     suspend fun read(view: WebView, id: ProviderId): ProviderSnapshot = withContext(Dispatchers.Main) {
         val expected = if (id == ProviderId.CLAUDE) "claude.ai" else "opencode.ai"
-        if (Uri.parse(view.url).host != expected) throw ProviderException("Terminez la connexion sur $expected avant de continuer.")
+        if (Uri.parse(view.url).host != expected) throw ProviderException("Finish signing in on $expected before continuing.")
         val key = "__quotaDeck" + java.util.UUID.randomUUID().toString().replace("-", "")
         val task = if (id == ProviderId.CLAUDE) """
             const orgs = await get('/api/organizations');
@@ -53,8 +53,8 @@ object WebSessionReader {
                     val payload = (runCatching { Json.parseToJsonElement(result) }.getOrNull() as? JsonPrimitive)?.contentOrNull
                     if (payload != null) {
                         val data = Json.parseToJsonElement(payload)
-                        if (data.flag("error") == true) throw ProviderException("Le fournisseur n’a pas rendu ses quotas accessibles dans cette session.")
-                        val usage = data.obj("data") ?: throw ProviderException("Quotas non communiqués.")
+                        if (data.flag("error") == true) throw ProviderException("The provider did not make quotas available in this session.")
+                        val usage = data.obj("data") ?: throw ProviderException("Quotas not reported.")
                         return@withTimeout if (id == ProviderId.CLAUDE) QuotaParsers.claude(usage).copy(plan = data.text("plan"))
                             else QuotaParsers.opencode(usage).copy(identity = data.text("name"))
                     }

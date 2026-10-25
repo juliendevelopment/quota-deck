@@ -43,7 +43,7 @@ class WebLoginRegressionTest {
             }
             assertTrue("Google SSO must not continue inside an embedded WebView after 2FA", web!!.webViewClient.shouldOverrideUrlLoading(web!!, request))
         }
-        compose.onNodeWithText("Utiliser la connexion navigateur").assertIsDisplayed()
+        compose.onNodeWithText("Use browser sign-in").assertIsDisplayed()
     }
     private fun findWebView(view: View): WebView? {
         if (view is WebView) return view

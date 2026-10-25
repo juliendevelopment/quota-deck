@@ -51,17 +51,17 @@ class ApiClient(private val client: OkHttpClient = OkHttpClient.Builder()
                     val root = runCatching { json.parseToJsonElement(response.peekBody(8192).string()) }.getOrNull()
                     val oauthCode = listOfNotNull(root?.text("error"), root?.obj("error")?.text("code"), root?.obj("error")?.text("type")).firstOrNull { it in FailureReport.oauthCodes }
                     val message = when (oauthCode) {
-                        "invalid_grant" -> "Le code de connexion est expiré, déjà utilisé ou ne correspond pas à cette demande. [invalid_grant]"
-                        "invalid_client", "unauthorized_client" -> "Le fournisseur refuse ce client OAuth. [$oauthCode]"
-                        "invalid_scope", "insufficient_scope" -> "Le fournisseur refuse les autorisations de lecture demandées. [$oauthCode]"
-                        "access_denied" -> "Autorisation refusée par le fournisseur. [access_denied]"
-                        "expired_token" -> "Le code d’appareil a expiré. Relancez la connexion. [expired_token]"
+                        "invalid_grant" -> "The sign-in code has expired, was already used or does not match this request. [invalid_grant]"
+                        "invalid_client", "unauthorized_client" -> "The provider rejected this OAuth client. [$oauthCode]"
+                        "invalid_scope", "insufficient_scope" -> "The provider rejected the requested read permissions. [$oauthCode]"
+                        "access_denied" -> "Authorization denied by the provider. [access_denied]"
+                        "expired_token" -> "The device code has expired. Start sign-in again. [expired_token]"
                         else -> when (response.code) {
-                        401 -> "Session expirée. Reconnectez ce compte."
-                        403 -> "Accès refusé par le fournisseur (403). Essayez une reconnexion ou consultez la page officielle."
-                        429 -> "Trop de requêtes. Patientez avant d’actualiser."
-                        in 300..399 -> "Le fournisseur demande une nouvelle connexion."
-                        else -> "Le fournisseur est indisponible (HTTP ${response.code})."
+                        401 -> "Session expired. Reconnect this account."
+                        403 -> "Access denied by the provider (403). Reconnect or check the official page."
+                        429 -> "Too many requests. Wait before refreshing."
+                        in 300..399 -> "The provider requires a new sign-in."
+                        else -> "The provider is unavailable (HTTP ${response.code})."
                         }
                     }
                     val retryAfter = response.header("Retry-After")?.let { raw ->
@@ -70,14 +70,14 @@ class ApiClient(private val client: OkHttpClient = OkHttpClient.Builder()
                     }
                     throw ProviderException(message, response.code == 401 || response.code in 300..399, response.code, oauthCode, endpoint = endpoint, retryAfterMillis = retryAfter)
                 }
-                val text = response.body?.string() ?: throw ProviderException("Réponse vide du fournisseur.")
-                if (text.length > 4_000_000) throw ProviderException("Réponse du fournisseur trop volumineuse.")
+                val text = response.body?.string() ?: throw ProviderException("Empty provider response.")
+                if (text.length > 4_000_000) throw ProviderException("Provider response is too large.")
                 try {
                     json.parseToJsonElement(text).also {
                         if (it !is JsonObject && it !is JsonArray) throw IllegalArgumentException("Unexpected scalar response")
                     }
                 }
-                catch (_: IllegalArgumentException) { throw ProviderException("Réponse inattendue du fournisseur (pas de données JSON).") }
+                catch (_: IllegalArgumentException) { throw ProviderException("Unexpected provider response (not JSON data).") }
             }
         } catch (e: ProviderException) { throw e }
         catch (e: IOException) {
@@ -90,7 +90,7 @@ class ApiClient(private val client: OkHttpClient = OkHttpClient.Builder()
                 e is ConnectException || e is SocketException -> NetworkFailure.CONNECTION
                 else -> NetworkFailure.IO
             }
-            throw ProviderException("Connexion impossible : ${kind.userLabel}. Réessayez lorsque QuotaDeck est au premier plan.", networkFailure = kind, endpoint = endpoint)
+            throw ProviderException("Connection failed: ${kind.userLabel}. Try again with QuotaDeck in the foreground.", networkFailure = kind, endpoint = endpoint)
         }
     }
 }

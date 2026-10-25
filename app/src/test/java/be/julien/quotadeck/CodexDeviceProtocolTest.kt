@@ -115,7 +115,7 @@ class CodexDeviceProtocolTest {
         MockWebServer().use { server ->
             val error = runCatching { OAuthService(openAiBase = server.url("/").toString().trimEnd('/')).finishCodex(DeviceLogin("fixture-device", "FIXTURE-CODE", 5, System.currentTimeMillis() - 16 * 60_000)) }.exceptionOrNull()
             assertTrue(error is ProviderException)
-            assertTrue(error!!.message!!.contains("expiré"))
+            assertTrue(error!!.message!!.contains("expired"))
             assertEquals(0, server.requestCount)
         }
     }

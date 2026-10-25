@@ -86,7 +86,10 @@ class CallbackFlowRegressionTest {
                 }
             }
             assertEquals("fixture-code", code.await())
-            assertFalse("Receiving an authorization code is not a successful token exchange", page.contains("Connexion terminee."))
+            assertFalse("Receiving an authorization code is not a successful token exchange", page.contains("Connection complete."))
+            assertTrue(page.contains("Authorization received"))
+            assertTrue(page.contains("<html lang=\"en\">"))
+            assertTrue(page.contains("Return to QuotaDeck"))
         }
     }
 }

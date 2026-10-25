@@ -15,48 +15,48 @@ object QuotaParsers {
         }
     }
     fun claude(data: JsonElement): ProviderSnapshot {
-        if (data !is JsonObject) throw ProviderException("Format des quotas Claude inattendu.")
+        if (data !is JsonObject) throw ProviderException("Unexpected Claude quota response format.")
         val windows = buildList {
             data.forEach { (key, value) ->
                 if (value is JsonObject && (key == "five_hour" || key.startsWith("seven_day"))) {
                     val label = when (key) {
-                        "five_hour" -> "Session · 5 heures"
-                        "seven_day" -> "Semaine · tous les modèles"
-                        else -> "Semaine · " + key.removePrefix("seven_day_").replace('_', ' ')
+                        "five_hour" -> "Session · 5 hours"
+                        "seven_day" -> "Week · all models"
+                        else -> "Week · " + key.removePrefix("seven_day_").replace('_', ' ')
                     }
                     add(QuotaWindow(label, remaining(value.number("utilization")), timestamp(value.text("resets_at"))))
                 }
             }
             data.arr("limits")?.forEach { value ->
-                val model = value.obj("scope")?.obj("model")?.text("display_name") ?: value.text("display_name") ?: "Limite supplémentaire"
+                val model = value.obj("scope")?.obj("model")?.text("display_name") ?: value.text("display_name") ?: "Additional limit"
                 add(QuotaWindow(model, remaining(value.number("utilization")), timestamp(value.text("resets_at"))))
             }
             data.obj("extra_usage")?.takeIf { it.flag("is_enabled") == true }?.let {
-                add(QuotaWindow("Usage supplémentaire", remaining(it.number("utilization")), detail = "Dépassements activés chez Claude — cette app ne les modifie pas."))
+                add(QuotaWindow("Extra usage", remaining(it.number("utilization")), detail = "Extra usage is enabled in Claude; this app does not change that setting."))
             }
         }
-        if (windows.isEmpty()) throw ProviderException("Claude ne communique aucune fenêtre de quota pour ce compte.")
+        if (windows.isEmpty()) throw ProviderException("Claude did not report any quota windows for this account.")
         return ProviderSnapshot(ProviderId.CLAUDE, windows = windows)
     }
     fun codex(data: JsonElement): ProviderSnapshot {
         val windows = buildList {
             fun append(limits: JsonObject?, prefix: String = "") {
-                listOf("primary_window" to "Session", "secondary_window" to "Semaine").forEach { (key, fallback) ->
+                listOf("primary_window" to "Session", "secondary_window" to "Week").forEach { (key, fallback) ->
                     limits?.obj(key)?.let { lane ->
                         val duration = lane.long("limit_window_seconds")
-                        val label = when (duration) { 18000L -> "Session · 5 heures"; 604800L -> "Semaine"; else -> fallback }
+                        val label = when (duration) { 18000L -> "Session · 5 hours"; 604800L -> "Week"; else -> fallback }
                         add(QuotaWindow(prefix + label, remaining(lane.number("used_percent")), timestamp(lane.text("reset_at"))))
                     }
                 }
             }
             append(data.obj("rate_limit"))
-            data.arr("additional_rate_limits")?.forEach { item -> append(item.obj("rate_limit"), (item.text("limit_name") ?: item.text("metered_feature") ?: "Autre") + " · ") }
-            data.obj("code_review_rate_limit")?.let { append(it, "Revue · ") }
+            data.arr("additional_rate_limits")?.forEach { item -> append(item.obj("rate_limit"), (item.text("limit_name") ?: item.text("metered_feature") ?: "Other") + " · ") }
+            data.obj("code_review_rate_limit")?.let { append(it, "Code review · ") }
             data.obj("credits")?.let { credits ->
-                credits.text("balance")?.let { balance -> add(QuotaWindow("Crédits", detail = "Solde communiqué : $balance")) }
+                credits.text("balance")?.let { balance -> add(QuotaWindow("Credits", detail = "Reported balance: $balance")) }
             }
         }
-        if (windows.isEmpty()) throw ProviderException("Aucun quota Codex communiqué pour ce compte.")
+        if (windows.isEmpty()) throw ProviderException("No Codex quotas were reported for this account.")
         return ProviderSnapshot(ProviderId.CODEX, plan = data.text("plan_type"), windows = windows)
     }
     fun antigravitySummary(data: JsonElement): List<QuotaWindow> {
@@ -70,7 +70,7 @@ object QuotaParsers {
                     listOfNotNull(group.text("displayName") ?: group.text("name"), bucket.text("displayName") ?: bucket.text("name") ?: bucket.text("bucketId")).joinToString(" · ").ifBlank { "Quota" },
                     if (bucket.flag("disabled") == true) null else fraction?.times(100)?.let(::percent),
                     timestamp(bucket.text("resetTime")),
-                    if (bucket.flag("disabled") == true) "Non disponible pour cet abonnement" else bucket.text("description"),
+                    if (bucket.flag("disabled") == true) "Not available on this plan" else bucket.text("description"),
                 )
             } ?: emptyList()
         } ?: emptyList()
@@ -84,8 +84,8 @@ object QuotaParsers {
     fun opencode(data: JsonElement, apiKey: Boolean = false, now: Instant = Instant.now()): ProviderSnapshot {
         val access = data.obj("access")
         val meters = if (apiKey) data.obj("usage") else access?.obj("meters")
-        val keys = if (apiKey) listOf("rolling" to "Session · 5 heures", "weekly" to "Semaine", "monthly" to "Mois")
-            else listOf("fiveHour" to "Session · 5 heures", "week" to "Semaine", "month" to "Mois")
+        val keys = if (apiKey) listOf("rolling" to "Session · 5 hours", "weekly" to "Week", "monthly" to "Month")
+            else listOf("fiveHour" to "Session · 5 hours", "week" to "Week", "month" to "Month")
         val windows = keys.mapNotNull { (key, label) ->
             val meter = meters?.obj(key) ?: return@mapNotNull null
             val used = listOf("usedMicroCents", "used", "usage", "consumed", "count", "usedTokens").firstNotNullOfOrNull { meter.number(it) }
@@ -98,7 +98,7 @@ object QuotaParsers {
                 ?: if (key == "month" || key == "monthly") timestamp(access?.text("endsAt")) else null
             QuotaWindow(label, remaining(usedPercent), reset)
         }
-        if (windows.isEmpty()) throw ProviderException("Aucun quota Go communiqué. Vérifiez l’abonnement et l’espace de travail sur OpenCode.")
+        if (windows.isEmpty()) throw ProviderException("No Go quotas were reported. Check your subscription and workspace in OpenCode.")
         return ProviderSnapshot(ProviderId.OPENCODE, plan = "Go", windows = windows)
     }
 }

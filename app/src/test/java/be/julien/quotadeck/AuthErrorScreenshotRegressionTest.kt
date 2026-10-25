@@ -30,23 +30,23 @@ class AuthErrorScreenshotRegressionTest {
         compose.runOnIdle {
             model = ViewModelProvider(compose.activity)[DashboardViewModel::class.java]
             model.beginConnection(ProviderId.CLAUDE)
-            model.startConnection { throw ProviderException("Diagnostic réseau de test") }
+            model.startConnection { throw ProviderException("Test network diagnostic") }
         }
-        compose.waitUntil(5000) { compose.onAllNodesWithText("Diagnostic réseau de test").fetchSemanticsNodes().isNotEmpty() }
-        compose.onNodeWithText("Diagnostic réseau de test").assertIsDisplayed()
+        compose.waitUntil(5000) { compose.onAllNodesWithText("Test network diagnostic").fetchSemanticsNodes().isNotEmpty() }
+        compose.onNodeWithText("Test network diagnostic").assertIsDisplayed()
         compose.runOnIdle {
             assertEquals("Non-sensitive error screens must not be blacked out", 0, compose.activity.window.attributes.flags and WindowManager.LayoutParams.FLAG_SECURE)
             val dialog = org.robolectric.shadows.ShadowDialog.getLatestDialog()
             assertNotNull("The visible OAuth dialog must also be checked", dialog)
             assertEquals("The dialog must not keep its inherited secure flag", 0, dialog.window!!.attributes.flags and WindowManager.LayoutParams.FLAG_SECURE)
         }
-        compose.onNodeWithText("Copier le diagnostic").performClick()
+        compose.onNodeWithText("Copy diagnostic").performClick()
         compose.runOnIdle {
             val clipboard = compose.activity.getSystemService(android.content.Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
             val report = clipboard.primaryClip!!.getItemAt(0).text.toString()
-            assertTrue(report.contains("Fournisseur : CLAUDE"))
-            assertTrue(report.contains("Etape : BROWSER"))
-            assertFalse(report.contains("Diagnostic réseau de test"))
+            assertTrue(report.contains("Provider: CLAUDE"))
+            assertTrue(report.contains("Stage: BROWSER"))
+            assertFalse(report.contains("Test network diagnostic"))
         }
     }
 }

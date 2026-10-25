@@ -32,7 +32,7 @@ fun WebLogin(id: ProviderId, error: String?, onCookie: (String, String, Provider
             kotlinx.coroutines.delay(45_000)
             webView?.stopLoading()
             loading = false
-            notice = "Chargement interrompu après 45 secondes. Utilisez la connexion dans le navigateur système ou réessayez par email."
+            notice = "Loading stopped after 45 seconds. Use system-browser sign-in or try email sign-in again."
         }
     }
     val scope = rememberCoroutineScope()
@@ -49,7 +49,7 @@ fun WebLogin(id: ProviderId, error: String?, onCookie: (String, String, Provider
     Surface(Modifier.fillMaxSize()) {
         Column(Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding()) {
             Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp), horizontalArrangement = Arrangement.SpaceBetween) {
-                TextButton(onClick = onCancel) { Text("Fermer") }
+                TextButton(onClick = onCancel) { Text("Close") }
                 TextButton(enabled = !reading, onClick = {
                     val view = webView ?: return@TextButton
                     reading = true
@@ -59,14 +59,14 @@ fun WebLogin(id: ProviderId, error: String?, onCookie: (String, String, Provider
                             onCookie(cookie(), view.settings.userAgentString, snapshot)
                         } finally { reading = false }
                     }
-                }) { Text(if (reading) "Lecture…" else "Terminer") }
+                }) { Text(if (reading) "Reading…" else "Finish") }
             }
-            Text("Connexion directe · $currentHost", modifier = Modifier.padding(horizontal = 16.dp), style = MaterialTheme.typography.labelMedium)
-            Text("Connexion email uniquement. Pour Google, utilisez la connexion dans le navigateur système.", modifier = Modifier.padding(16.dp), style = MaterialTheme.typography.bodySmall)
+            Text("Direct sign-in · $currentHost", modifier = Modifier.padding(horizontal = 16.dp), style = MaterialTheme.typography.labelMedium)
+            Text("Email sign-in only. For Google, use system-browser sign-in.", modifier = Modifier.padding(16.dp), style = MaterialTheme.typography.bodySmall)
             error?.let { Text(it, color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(horizontal = 16.dp)) }
             notice?.let {
                 Text(it, color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(horizontal = 16.dp))
-                TextButton(onClick = onExternalLogin, modifier = Modifier.padding(horizontal = 8.dp)) { Text("Utiliser la connexion navigateur") }
+                TextButton(onClick = onExternalLogin, modifier = Modifier.padding(horizontal = 8.dp)) { Text("Use browser sign-in") }
             }
             if (loading) LinearProgressIndicator(Modifier.fillMaxWidth())
             AndroidView(modifier = Modifier.fillMaxSize(), factory = { context ->
@@ -87,7 +87,7 @@ fun WebLogin(id: ProviderId, error: String?, onCookie: (String, String, Provider
                             val remote = uri.host.orEmpty().lowercase()
                             if (remote == "accounts.google.com" || remote.endsWith(".accounts.google.com") || remote == "accounts.youtube.com") {
                                 loading = false
-                                notice = "Google ne doit pas être utilisé dans ce navigateur intégré. Utilisez la connexion navigateur."
+                                notice = "Do not use Google sign-in in this embedded browser. Use browser sign-in instead."
                                 view.stopLoading()
                                 return true
                             }
@@ -96,7 +96,7 @@ fun WebLogin(id: ProviderId, error: String?, onCookie: (String, String, Provider
                             val blocked = uri.scheme != "https" || !allowed
                             if (blocked) {
                                 loading = false
-                                notice = "Redirection bloquée vers $remote. Utilisez la connexion navigateur."
+                                notice = "Redirect to $remote blocked. Use browser sign-in instead."
                             }
                             return blocked
                         }
@@ -112,13 +112,13 @@ fun WebLogin(id: ProviderId, error: String?, onCookie: (String, String, Provider
                         override fun onReceivedError(view: WebView, request: WebResourceRequest, failure: WebResourceError) {
                             if (request.isForMainFrame) {
                                 loading = false
-                                notice = "Page de connexion inaccessible. Utilisez la connexion navigateur ou réessayez."
+                                notice = "Sign-in page unavailable. Use browser sign-in or try again."
                             }
                         }
                         override fun onReceivedHttpError(view: WebView, request: WebResourceRequest, response: WebResourceResponse) {
                             if (request.isForMainFrame && response.statusCode >= 400) {
                                 loading = false
-                                notice = "Le fournisseur refuse la page de connexion (HTTP ${response.statusCode}). Utilisez la connexion navigateur."
+                                notice = "The provider rejected the sign-in page (HTTP ${response.statusCode}). Use browser sign-in."
                             }
                         }
                     }

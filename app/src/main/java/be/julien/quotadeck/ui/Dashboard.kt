@@ -64,20 +64,20 @@ fun DashboardScreen(
                     Column(Modifier.weight(1f)) {
                         Text("QUOTADECK", color = Mint, fontSize = 12.sp, fontWeight = FontWeight.Bold, letterSpacing = 3.sp)
                         Spacer(Modifier.height(8.dp))
-                        Text("Le plein d’IA.", fontSize = 32.sp, fontWeight = FontWeight.Bold)
+                        Text("AI at a glance.", fontSize = 32.sp, fontWeight = FontWeight.Bold)
                     }
-                    IconButton(onClick = onAbout) { Icon(Icons.Outlined.Info, "À propos et confidentialité", tint = Muted) }
+                    IconButton(onClick = onAbout) { Icon(Icons.Outlined.Info, "About and privacy", tint = Muted) }
                 }
-                Text("Vos quotas, au même endroit.", color = Muted, modifier = Modifier.padding(top = 4.dp))
+                Text("Your quotas, all in one place.", color = Muted, modifier = Modifier.padding(top = 4.dp))
                 Spacer(Modifier.height(20.dp))
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                     val count = states.count { it.connected }
-                    Text("$count / 4 comptes connectés", color = Muted, fontSize = 13.sp, modifier = Modifier.weight(1f))
+                    Text("$count / 4 accounts connected", color = Muted, fontSize = 13.sp, modifier = Modifier.weight(1f))
                     TextButton(onClick = onRefresh, enabled = !refreshing && count > 0) {
                         if (refreshing) CircularProgressIndicator(Modifier.size(16.dp), strokeWidth = 2.dp)
                         else Icon(Icons.Outlined.Refresh, null, Modifier.size(18.dp))
                         Spacer(Modifier.width(6.dp))
-                        Text(if (refreshing) "Actualisation" else "Actualiser")
+                        Text(if (refreshing) "Refreshing" else "Refresh")
                     }
                 }
             }
@@ -87,7 +87,7 @@ fun DashboardScreen(
             item {
                 Row(Modifier.padding(4.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     Icon(Icons.Outlined.Lock, null, Modifier.size(16.dp), tint = Muted)
-                    Text("Comptes chiffrés sur ce téléphone. Aucun serveur QuotaDeck. Les connexions passent directement par les fournisseurs.", color = Muted, fontSize = 12.sp)
+                    Text("Accounts are encrypted on this phone. No QuotaDeck server. Connections go directly to the providers.", color = Muted, fontSize = 12.sp)
                 }
             }
         }
@@ -112,8 +112,8 @@ private fun ProviderCard(state: ProviderState, onConnect: () -> Unit, onDisconne
                 Box {
                     IconButton(onClick = { menu = true }, modifier = Modifier.size(32.dp)) { Icon(Icons.Outlined.MoreVert, "Options ${state.id.title}", tint = Muted) }
                     DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
-                        DropdownMenuItem(text = { Text("Page officielle") }, onClick = { menu = false; onOpenUsage() })
-                        if (state.connected) DropdownMenuItem(text = { Text("Déconnecter") }, onClick = { menu = false; onDisconnect() })
+                        DropdownMenuItem(text = { Text("Official page") }, onClick = { menu = false; onOpenUsage() })
+                        if (state.connected) DropdownMenuItem(text = { Text("Disconnect") }, onClick = { menu = false; onDisconnect() })
                     }
                 }
             }
@@ -121,29 +121,29 @@ private fun ProviderCard(state: ProviderState, onConnect: () -> Unit, onDisconne
             if (state.loading) LinearProgressIndicator(modifier = Modifier.fillMaxWidth(), color = color)
             state.error?.let {
                 Text(it, color = MaterialTheme.colorScheme.error, fontSize = 13.sp)
-                if (state.diagnostic != null) TextButton(onClick = onCopyDiagnostic) { Text("Copier le diagnostic ${state.id.title}") }
-                if (state.snapshot != null) Text("Dernier relevé conservé — données non actualisées", color = Color(0xFFFFCE82), fontSize = 12.sp)
+                if (state.diagnostic != null) TextButton(onClick = onCopyDiagnostic) { Text("Copy diagnostic ${state.id.title}") }
+                if (state.snapshot != null) Text("Last reading kept — data not refreshed", color = Color(0xFFFFCE82), fontSize = 12.sp)
             }
             val snapshot = state.snapshot
             if (snapshot != null) {
                 snapshot.windows.forEach { QuotaRow(it, color) }
                 snapshot.notice?.let { Text(it, color = Muted, fontSize = 12.sp) }
                 val stamp = remember(snapshot.fetchedAt) {
-                    DateTimeFormatter.ofPattern("dd/MM · HH:mm").withZone(ZoneId.systemDefault()).format(Instant.ofEpochMilli(snapshot.fetchedAt))
+                    DateTimeFormatter.ofPattern("dd MMM · HH:mm", java.util.Locale.ENGLISH).withZone(ZoneId.systemDefault()).format(Instant.ofEpochMilli(snapshot.fetchedAt))
                 }
-                Text("Relevé le $stamp", color = Muted, fontSize = 11.sp)
+                Text("Updated $stamp", color = Muted, fontSize = 11.sp)
             }
             if (!state.connected) {
-                Text("Connectez votre abonnement pour consulter les limites disponibles.", color = Muted, fontSize = 13.sp)
+                Text("Connect your subscription to see its available limits.", color = Muted, fontSize = 13.sp)
                 Button(onClick = onConnect, modifier = Modifier.fillMaxWidth(), colors = ButtonDefaults.buttonColors(containerColor = color, contentColor = Background)) {
                     Icon(Icons.Outlined.Login, null, Modifier.size(18.dp))
                     Spacer(Modifier.width(8.dp))
-                    Text("Connecter ${state.id.title}", fontWeight = FontWeight.SemiBold)
+                    Text("Connect ${state.id.title}", fontWeight = FontWeight.SemiBold)
                 }
             } else if (state.error != null) {
-                OutlinedButton(onClick = onConnect, modifier = Modifier.fillMaxWidth()) { Text("Reconnecter ${state.id.title}") }
+                OutlinedButton(onClick = onConnect, modifier = Modifier.fillMaxWidth()) { Text("Reconnect ${state.id.title}") }
             } else if (snapshot == null && !state.loading) {
-                Text("Connecté · actualisez pour lire les quotas.", color = Muted, fontSize = 13.sp)
+                Text("Connected · refresh to read quotas.", color = Muted, fontSize = 13.sp)
             }
         }
     }
@@ -154,7 +154,7 @@ private fun QuotaRow(window: QuotaWindow, color: Color) {
     Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(window.label, fontSize = 13.sp, modifier = Modifier.weight(1f))
-            Text(window.remainingPercent?.let { "${it.roundToInt()} % restant" } ?: "Non communiqué", color = color, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+            Text(window.remainingPercent?.let { "${it.roundToInt()}% left" } ?: "Not reported", color = color, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
         }
         window.remainingPercent?.let { percent ->
             LinearProgressIndicator(progress = { (percent / 100.0).toFloat() }, modifier = Modifier.fillMaxWidth().height(6.dp), color = if (percent <= 10) Color(0xFFFF9E9E) else color, trackColor = Color(0xFF303747))

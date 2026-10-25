@@ -55,13 +55,13 @@ fun resetLabel(value: String?, now: Instant = Instant.now()): String? {
     if (value == null) return null
     val target = runCatching { Instant.parse(value) }.getOrNull() ?: return null
     val seconds = java.time.Duration.between(now, target).seconds
-    if (seconds <= 0) return "Réinitialisation attendue"
+    if (seconds <= 0) return "Reset pending"
     val minutes = (seconds + 59) / 60
     val days = minutes / (24 * 60)
     val hours = (minutes % (24 * 60)) / 60
     return when {
-        days > 0 -> "Réinitialisation dans ${days} j ${hours} h"
-        hours > 0 -> "Réinitialisation dans ${hours} h ${minutes % 60} min"
-        else -> "Réinitialisation dans ${minutes} min"
+        days > 0 -> "Resets in ${days}d ${hours}h"
+        hours > 0 -> "Resets in ${hours}h ${minutes % 60}m"
+        else -> "Resets in ${minutes}m"
     }
 }

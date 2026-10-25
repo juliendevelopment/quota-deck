@@ -57,8 +57,8 @@ class MainActivity : ComponentActivity() {
                         { openUrl(it.homeUrl) }, { about = true },
                         { id -> states.firstOrNull { it.id == id }?.diagnostic?.let { copyDiagnostic(this@MainActivity, it) } })
                 }
-                if (about) AlertDialog(onDismissRequest = { about = false }, confirmButton = { TextButton(onClick = { about = false }) { Text("Fermer") } },
-                    title = { Text("QuotaDeck ${BuildConfig.VERSION_NAME}") }, text = { Text("Application personnelle, non officielle. Aucune requête de génération IA, aucun achat, aucune télémétrie. Les sessions et derniers relevés sont chiffrés par Android Keystore, hors sauvegarde. Les interfaces de quotas peuvent changer. Déconnecter efface les données locales ; pour révoquer une autorisation, utilisez les réglages du fournisseur. Les quotas ne sont vérifiés qu’après un relevé réussi.") })
+                if (about) AlertDialog(onDismissRequest = { about = false }, confirmButton = { TextButton(onClick = { about = false }) { Text("Close") } },
+                    title = { Text("QuotaDeck ${BuildConfig.VERSION_NAME}") }, text = { Text("Unofficial personal app. No AI generation requests, purchases or telemetry. Sessions and recent quota readings are encrypted with Android Keystore and excluded from backups. Quota interfaces may change. Disconnect removes local data; revoke permissions in the provider account settings. Quotas are only verified after a successful reading.") })
                 login?.takeIf { it.stage != "web" && (it.provider != ProviderId.OPENCODE || it.stage == "working") }?.let { state -> LoginDialog(state, model::cancelLogin, { model.startConnection(::openUrl) }, ::openUrl, model::startEmailConnection) }
             }
         }
@@ -79,59 +79,59 @@ internal fun providerBrowserIntent(context: Context, uri: Uri): CustomTabsIntent
             .addFlags(android.content.Intent.FLAG_ACTIVITY_CLEAR_TOP or android.content.Intent.FLAG_ACTIVITY_SINGLE_TOP)
         val back = android.app.PendingIntent.getActivity(context, 0x434458, navigation,
             android.app.PendingIntent.FLAG_UPDATE_CURRENT or android.app.PendingIntent.FLAG_IMMUTABLE)
-        builder.addMenuItem("Revenir dans QuotaDeck", back)
+        builder.addMenuItem("Return to QuotaDeck", back)
     }
     return builder.build()
 }
 
 private fun copyDiagnostic(context: Context, diagnostic: String) {
     (context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager)
-        .setPrimaryClip(ClipData.newPlainText("Diagnostic QuotaDeck sans secrets", diagnostic))
+        .setPrimaryClip(ClipData.newPlainText("QuotaDeck diagnostic without secrets", diagnostic))
 }
 
 @Composable
 private fun LoginDialog(state: LoginState, cancel: () -> Unit, start: () -> Unit, open: (String) -> Unit, emailLogin: () -> Unit) {
     val context = androidx.compose.ui.platform.LocalContext.current
-    AlertDialog(onDismissRequest = cancel, title = { Text("Connecter ${state.provider.title}") },
+    AlertDialog(onDismissRequest = cancel, title = { Text("Connect ${state.provider.title}") },
         text = {
             Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 state.error?.let {
                     SelectionContainer { Text(it, color = MaterialTheme.colorScheme.error) }
-                    Text("Étape : ${state.phase.label}", style = MaterialTheme.typography.bodySmall)
+                    Text("Stage: ${state.phase.label}", style = MaterialTheme.typography.bodySmall)
                     state.diagnostic?.let { diagnostic ->
-                        TextButton(onClick = { copyDiagnostic(context, diagnostic) }) { Text("Copier le diagnostic") }
+                        TextButton(onClick = { copyDiagnostic(context, diagnostic) }) { Text("Copy diagnostic") }
                     }
                 }
                 when (state.stage) {
                     "device" -> {
-                        Text("1. Copiez le code.\n2. Ouvrez OpenAI et terminez l’autorisation jusqu’au message de réussite.\n3. Fermez l’onglet avec × ou Retour, ou utilisez le menu ⋮ → Revenir dans QuotaDeck. La vérification reprend dans l’app ; OpenAI ne redirige pas automatiquement vers elle.")
+                        Text("1. Copy the code.\n2. Open OpenAI and finish authorization until you see the success message.\n3. Close the tab with × or Back, or use ⋮ → Return to QuotaDeck. Verification resumes in the app; OpenAI does not automatically redirect back to it.")
                         SelectionContainer { Text(state.device?.code.orEmpty(), style = MaterialTheme.typography.headlineMedium) }
                         TextButton(onClick = {
-                            val clip = ClipData.newPlainText("Code OpenAI", state.device?.code)
+                            val clip = ClipData.newPlainText("OpenAI code", state.device?.code)
                             if (android.os.Build.VERSION.SDK_INT >= 33) clip.description.extras = android.os.PersistableBundle().apply { putBoolean(android.content.ClipDescription.EXTRA_IS_SENSITIVE, true) }
                             (context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager).setPrimaryClip(clip)
-                        }) { Text("Copier le code") }
-                        Text("Le même code est conservé pendant la tentative (15 minutes maximum). Ne recommencez pas une nouvelle connexion après l’avoir validé. Dans ChatGPT, la connexion par code d’appareil peut nécessiter une activation dans les réglages de sécurité.", style = MaterialTheme.typography.bodySmall)
-                        Text("Étape : ${state.phase.label}", style = MaterialTheme.typography.bodySmall)
+                        }) { Text("Copy code") }
+                        Text("The same code is kept during this attempt (up to 15 minutes). Do not start another sign-in after approving it. You may need to enable device-code sign-in in your ChatGPT security settings.", style = MaterialTheme.typography.bodySmall)
+                        Text("Stage: ${state.phase.label}", style = MaterialTheme.typography.bodySmall)
                         LinearProgressIndicator(Modifier.fillMaxWidth())
                     }
                     "claude" -> {
-                        Text("Terminez la connexion Claude/Google dans le navigateur système, puis revenez ici. Le retour se fait sur ce téléphone. Délai maximum : 5 minutes.")
-                        Text("Client public Claude Code · accès demandé : profil et quotas uniquement, sans génération ni historique des conversations.", style = MaterialTheme.typography.bodySmall)
+                        Text("Finish signing in to Claude/Google in your system browser, then return here. The callback runs on this phone. Timeout: 5 minutes.")
+                        Text("Public Claude Code client · requested access: profile and quotas only, with no generation or conversation history.", style = MaterialTheme.typography.bodySmall)
                         LinearProgressIndicator(Modifier.fillMaxWidth())
                     }
-                    "google" -> { Text("Terminez la connexion Google dans le navigateur, puis revenez ici. L’autorisation utilise le client public installé d’Antigravity ; elle n’est pas propre à QuotaDeck."); LinearProgressIndicator(Modifier.fillMaxWidth()) }
-                    "callback" -> { Text("Autorisation reçue. La finalisation reprend dès que QuotaDeck est au premier plan."); LinearProgressIndicator(Modifier.fillMaxWidth()) }
+                    "google" -> { Text("Finish signing in to Google in your browser, then return here. Authorization uses the public Antigravity installed-app client, not a QuotaDeck-specific client."); LinearProgressIndicator(Modifier.fillMaxWidth()) }
+                    "callback" -> { Text("Authorization received. Sign-in resumes as soon as QuotaDeck is in the foreground."); LinearProgressIndicator(Modifier.fillMaxWidth()) }
                     "working" -> { Text("${state.phase.label}…"); LinearProgressIndicator(Modifier.fillMaxWidth()) }
                     else -> {
                         Text(when (state.provider) {
-                            ProviderId.CLAUDE -> "Claude s’ouvre dans le navigateur système, qui prend en charge Google et sa double authentification. Le retour utilise une autorisation locale avec PKCE. Ce client public Claude Code demande uniquement le scope user:profile pour lire les quotas ; cette intégration reste non officielle."
-                            ProviderId.CODEX -> "OpenAI vous connecte dans votre navigateur avec un code d’appareil. Aucun mot de passe n’est saisi dans QuotaDeck."
-                            ProviderId.ANTIGRAVITY -> "Google s’ouvre dans votre navigateur. Le client public Antigravity demande les accès Cloud Platform et ses scopes techniques habituels. QuotaDeck n’effectue que des lectures de quotas ; il ne crée aucun projet et n’active aucune facturation."
-                            ProviderId.OPENCODE -> "1. Ouvrez OpenCode dans le navigateur et connectez-vous avec Google.\n2. Copiez la clé API de votre espace Go dans la console.\n3. Revenez ici et collez-la. Une seule fois suffit.\n\nNe souscrivez rien de nouveau : utilisez votre abonnement existant. La clé sert uniquement à lire les quotas, sans génération. La session de Chrome ne peut pas être transférée automatiquement à cette app."
+                            ProviderId.CLAUDE -> "Claude opens in your system browser, which supports Google sign-in and two-factor authentication. The local callback uses PKCE. This public Claude Code client requests only the user:profile scope to read quotas; this integration is unofficial."
+                            ProviderId.CODEX -> "Sign in to OpenAI in your browser using a device code. No password is entered in QuotaDeck."
+                            ProviderId.ANTIGRAVITY -> "Google opens in your browser. The public Antigravity client requests Cloud Platform access and its usual technical scopes. QuotaDeck only reads quotas; it does not create projects or enable billing."
+                            ProviderId.OPENCODE -> "1. Open OpenCode in your browser and sign in with Google.\n2. Copy your Go workspace API key from the console.\n3. Return here and paste it. You only need to do this once.\n\nUse your existing subscription; do not purchase a new one. The key is only used to read quotas, with no generation. Your Chrome session cannot be transferred automatically to this app."
                         })
                         if (state.provider == ProviderId.CLAUDE) {
-                            TextButton(onClick = emailLogin) { Text("Alternative : connexion email intégrée") }
+                            TextButton(onClick = emailLogin) { Text("Alternative: embedded email sign-in") }
                         }
                     }
                 }
@@ -139,13 +139,13 @@ private fun LoginDialog(state: LoginState, cancel: () -> Unit, start: () -> Unit
         },
         confirmButton = {
             when (state.stage) {
-                "device" -> TextButton(onClick = { state.url?.let(open) }) { Text("Ouvrir OpenAI") }
-                "google" -> TextButton(onClick = { state.url?.let(open) }) { Text("Rouvrir Google") }
-                "claude" -> TextButton(onClick = { state.url?.let(open) }) { Text("Rouvrir Claude") }
+                "device" -> TextButton(onClick = { state.url?.let(open) }) { Text("Open OpenAI") }
+                "google" -> TextButton(onClick = { state.url?.let(open) }) { Text("Reopen Google") }
+                "claude" -> TextButton(onClick = { state.url?.let(open) }) { Text("Reopen Claude") }
                 "working", "callback" -> Unit
-                else -> TextButton(onClick = start) { Text("Continuer chez ${state.provider.title}") }
+                else -> TextButton(onClick = start) { Text("Continue with ${state.provider.title}") }
             }
         },
-        dismissButton = { TextButton(onClick = cancel) { Text("Annuler") } },
+        dismissButton = { TextButton(onClick = cancel) { Text("Cancel") } },
     )
 }

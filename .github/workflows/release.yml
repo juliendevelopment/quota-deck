@@ -28,10 +28,10 @@ jobs:
           version = os.environ['GITHUB_REF_NAME']
           match = re.fullmatch(r'v(\d+)\.(\d+)\.(\d+)', version)
           if not match:
-              raise SystemExit('Tag attendu : vMAJOR.MINOR.PATCH')
+              raise SystemExit('Expected tag: vMAJOR.MINOR.PATCH')
           major, minor, patch = map(int, match.groups())
           if minor > 99 or patch > 99:
-              raise SystemExit('MINOR et PATCH doivent être inférieurs à 100')
+              raise SystemExit('MINOR and PATCH must be below 100')
           with open(os.environ['GITHUB_ENV'], 'a') as f:
               f.write(f'VERSION_NAME={version[1:]}\nVERSION_CODE={major*10000+minor*100+patch}\n')
       - name: Decode dedicated release key
@@ -41,7 +41,7 @@ jobs:
         run: |
           import base64, os
           if not os.environ['KEYSTORE']:
-              raise SystemExit('Clé absente : refus de publier un APK non signé')
+              raise SystemExit('Signing key missing: refusing to publish an unsigned APK')
           path = os.path.join(os.environ['RUNNER_TEMP'], 'quota-deck-release.jks')
           with open(path, 'wb') as f:
               f.write(base64.b64decode(os.environ['KEYSTORE'], validate=True))

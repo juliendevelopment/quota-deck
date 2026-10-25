@@ -9,22 +9,22 @@ object FailureReport {
         "authentication_error", "insufficient_scope", "rate_limit_exceeded", "authorization_pending", "slow_down", "expired_token")
     fun format(provider: ProviderId, phase: AuthPhase, error: Exception, version: String, android: Int): String {
         val e = error as? ProviderException
-        val code = e?.safeErrorCode?.takeIf { it in oauthCodes } ?: "non-renseigne"
-        val endpoint = e?.endpoint?.substringBefore('?')?.substringBefore('#')?.takeIf { it.matches(Regex("[A-Za-z0-9.:/{}_\\-]+")) } ?: "non-renseigne"
+        val code = e?.safeErrorCode?.takeIf { it in oauthCodes } ?: "not-reported"
+        val endpoint = e?.endpoint?.substringBefore('?')?.substringBefore('#')?.takeIf { it.matches(Regex("[A-Za-z0-9.:/{}_\\-]+")) } ?: "not-reported"
         return listOf(
             "QuotaDeck $version · Android API $android",
-            "Fournisseur : ${provider.name}",
-            "Etape : ${phase.name}",
-            "HTTP : ${e?.httpCode ?: "non-renseigne"}",
-            "Code fournisseur : $code",
-            "Reseau : ${e?.networkFailure?.name ?: "non-renseigne"}",
-            "Endpoint : $endpoint",
-            "Diagnostic sans mot de passe, code de connexion, jeton, cookie ni donnees de compte.",
+            "Provider: ${provider.name}",
+            "Stage: ${phase.name}",
+            "HTTP: ${e?.httpCode ?: "not-reported"}",
+            "Provider code: $code",
+            "Network: ${e?.networkFailure?.name ?: "not-reported"}",
+            "Endpoint: $endpoint",
+            "Safe diagnostic: no passwords, sign-in codes, tokens, cookies or account data.",
         ).joinToString("\n")
     }
 }
 
 enum class NetworkFailure(val userLabel: String) {
-    DNS("résolution DNS impossible"), TLS("connexion TLS/certificat refusée"), TIMEOUT("délai réseau dépassé"),
-    RESTRICTED("réseau refusé ou restreint pour l’app"), CONNECTION("connexion interrompue ou refusée"), IO("échec de communication réseau"),
+    DNS("DNS resolution failed"), TLS("TLS connection/certificate rejected"), TIMEOUT("network timeout"),
+    RESTRICTED("network access denied or restricted for this app"), CONNECTION("connection interrupted or refused"), IO("network communication failed"),
 }

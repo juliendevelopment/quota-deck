@@ -1,87 +1,94 @@
 # QuotaDeck
 
-Application Android personnelle en **Kotlin / Jetpack Compose**, en français, pour consulter sur une seule page les quotas d’abonnement **Claude, Codex, Google Antigravity et OpenCode Go**. Sans serveur QuotaDeck, publicité, télémétrie, achat ni requête de génération IA.
+A personal **Kotlin / Jetpack Compose** Android dashboard for **Claude, Codex, Google Antigravity and OpenCode Go** subscription quotas. The interface is in English. No QuotaDeck backend, ads, telemetry, purchases or AI generation requests.
 
-## Aperçu
+## Screenshots
 
 <p align="center">
-  <img src="docs/screenshots/dashboard-claude-codex.png" alt="QuotaDeck sur Android : quotas Claude et Codex" width="340" />
-  <img src="docs/screenshots/dashboard-codex-antigravity.png" alt="QuotaDeck sur Android : quotas Codex et Antigravity" width="340" />
+  <img src="docs/screenshots/dashboard-claude-codex.png" alt="QuotaDeck English interface: Claude and Codex quotas" width="340" />
+  <img src="docs/screenshots/dashboard-codex-antigravity.png" alt="QuotaDeck English interface: Codex and Antigravity quotas" width="340" />
 </p>
 
-Captures réelles sur Android. Les valeurs illustrent un relevé ponctuel, pas des quotas garantis. Les barres système du téléphone ont été retirées.
+English UI previews rendered by the app's real Compose components using **synthetic test fixtures**. These are not live account quota readings. Actual values depend on the account and the time of the reading.
 
-## Installer
+## Installation
 
-Depuis les [releases](https://github.com/juliendevelopment/quota-deck/releases), télécharger `QuotaDeck-v0.1.3.apk`, puis autoriser son installation Android. **Android 8.0 ou plus récent** (minSdk 26). Les versions suivantes conserveront la même signature et un versionCode croissant.
+Download `QuotaDeck-v0.1.4.apk` from the [releases](https://github.com/juliendevelopment/quota-deck/releases) and allow installation on your Android device. **Android 8.0 or later** is required (minSdk 26).
 
-## Connexions
+Install updates over the existing app, **without uninstalling**. Releases keep the same signing certificate and use an increasing versionCode, preserving your encrypted sessions. The app uses English even when the device language is French. Existing cached quota labels from earlier French versions are translated for display without clearing accounts or changing their values.
 
-- **Claude** : `Connecter Claude` → navigateur système (Chrome ou équivalent), compatible Google/2FA → autorisation avec le **client public Claude Code** → retour `http://localhost:<port>/callback` sur **le téléphone** → bouton **Revenir dans QuotaDeck** → échange du jeton **une fois l’app au premier plan**, stockage chiffré et lecture de `/api/oauth/usage`. PKCE S256, contrôle de `state`, scope demandé **`user:profile` uniquement**, renouvellement du jeton. La configuration du client et l’endpoint de jeton ont été vérifiés dans le binaire officiel Claude Code installé ; cela ne constitue pas une approbation de QuotaDeck par Anthropic. Si le fournisseur refuse ce client/scope, l’app ne contourne pas son refus. Une alternative email intégrée reste disponible ; Google y est intercepté avec une explication et un bouton vers le vrai navigateur, jamais laissé tourner après la 2FA.
-- **Codex** : connexion du **client public Codex** par code d’appareil, dans le navigateur système. Copier le code affiché, ouvrir OpenAI, terminer l’autorisation jusqu’au message de réussite, puis fermer l’onglet avec **× / Retour** ou le menu **⋮ → Revenir dans QuotaDeck**. Ce parcours ne fournit pas de redirection automatique vers QuotaDeck : l’app récupère la session par polling. Les vérifications et l’échange final sont suspendus tant que l’activité n’est pas au premier plan ; une panne temporaire de polling ne supprime plus le code en attente. Intervalle serveur, backoff, Retry-After, annulation et expiration à 15 minutes sont respectés. Un refus explicite arrête la tentative. L’échange du code à usage unique n’est pas rejoué automatiquement. L’état de tentative reste en mémoire : fermer de force l’app ou une destruction du processus impose une nouvelle tentative. ChatGPT peut exiger d’activer la connexion par code dans ses réglages de sécurité. La session est indépendante des fichiers Codex du VPS et reste chiffrée localement ; les jetons sont renouvelés automatiquement. L’espace ChatGPT est extrait du jeton d’identité comme dans le client officiel (avec secours sur le jeton d’accès) pour renseigner correctement la lecture des quotas, même si le jeton d’accès est opaque.
-- **Antigravity** : navigateur système Google + callback OAuth sur **127.0.0.1 du téléphone**, pas sur le VPS. Configuration publique du client installé Antigravity, PKCE et contrôle de `state`. Après l’autorisation, toucher **Revenir dans QuotaDeck** : l’échange du jeton attend le retour de l’activité au premier plan, pour ne pas dépendre d’un accès réseau en arrière-plan autorisé par le téléphone. Les scopes techniques Cloud Platform du client sont présentés avant l’ouverture. Nécessite un compte déjà initialisé dans Antigravity sur ordinateur. Aucun projet, onboarding ou service facturable n’est créé. Google peut refuser ce client sur certains comptes ; ne pas essayer de contourner ce refus.
-- **OpenCode Go** : `Connecter OpenCode Go` → **Ouvrir OpenCode avec Google** dans le navigateur système → récupérer la clé API de l’espace Go dans la console → revenir dans QuotaDeck et coller la clé **uniquement dans l’app**, une seule fois. Aucun nouvel abonnement nécessaire. La clé sert uniquement à lire `/zen/go/v1/usage`, jamais à appeler un modèle. Les cookies Chrome ne sont pas transférables à une WebView : ouvrir simplement le même site dans Chrome ne connecterait pas l’app. L’ancien parcours Google intégré a donc été retiré du chemin principal. Les anciennes sessions déjà enregistrées restent lisibles jusqu’à expiration.
+## Connections
 
-**Cette version est une alpha non officielle.** Les interfaces privées/internes des fournisseurs peuvent changer. La compilation, les tests synthétiques et les tests d’interface ne prouvent pas que la connexion d’un compte personnel particulier sera acceptée. Les captures ci-dessus proviennent d’un essai réel sur téléphone ; elles ne garantissent pas que tous les comptes ou tous les champs de quota seront pris en charge. Aucune donnée de quota fictive n’est affichée et aucun compte préconnecté n’est embarqué.
+- **Claude**: **Connect Claude** → system browser with Google/two-factor authentication support → authorization using the **public Claude Code client** → `http://localhost:<port>/callback` on **the phone** → **Return to QuotaDeck**. Token exchange resumes when the app is in the foreground; the token is encrypted locally and used to read `/api/oauth/usage`. Uses PKCE S256, CSRF `state` validation, the **`user:profile` scope only**, and token refresh. Public client configuration and token endpoints were checked against the official Claude Code distribution; this does not constitute Anthropic's endorsement of QuotaDeck. The app does not bypass provider refusals. An embedded email-only fallback is available; attempts to use Google there are intercepted with an explanation and a system-browser sign-in action.
+- **Codex**: sign in with the **public Codex client** using a device code. Copy the displayed code, open OpenAI, complete authorization until the success message, then close the tab with **× / Back** or choose **⋮ → Return to QuotaDeck**. Device authorization does not automatically redirect to this app: QuotaDeck polls OpenAI for the session. Polling and the final token exchange wait while the app is not in the foreground. Temporary polling failures keep the same pending code and use backoff and Retry-After; server polling intervals, cancellation and the 15-minute expiration are respected. Explicit refusal stops the attempt. The final single-use code exchange is not blindly replayed. Pending authorization is kept in memory; force-closing the app or process death requires a new attempt. ChatGPT may require enabling device-code sign-in in account security settings. Sessions are independent of any Codex credentials on another computer. Workspace metadata comes from the identity token, with an access-token fallback, so opaque access tokens are supported. Existing workspace selection is preserved during refresh.
+- **Antigravity**: Google system-browser sign-in with an OAuth callback on **the phone's 127.0.0.1**, not on a server. Uses the public installed-app Antigravity client, PKCE and CSRF `state` validation. Select **Return to QuotaDeck** after authorization; token exchange waits for the activity to resume. The client's Cloud Platform and technical scopes are disclosed before authorization. The account must already be initialized in the desktop Antigravity app. QuotaDeck does not create projects, onboard accounts, enable billing or bypass a client refusal.
+- **OpenCode Go**: **Connect OpenCode Go** → **Open OpenCode with Google** in the system browser → copy the Go workspace API key from the console → paste it **only into QuotaDeck**, once. Use your existing subscription; no new purchase is required. The key only reads `/zen/go/v1/usage` and is never used to call a model. Chrome cookies cannot be transferred automatically to an embedded WebView. Older stored web sessions remain readable until they expire.
 
-## Données et sécurité
+**This is an unofficial alpha.** Private/internal provider interfaces can change and some accounts or quota fields may not be supported. A successful build or fixture test does not prove access to a particular account. The app never fills missing quotas with invented data and ships with no preconnected accounts. Provider-supplied names, account identities and workspace names are preserved as reported, not translated as app text.
 
-- Session et dernier relevé chiffrés en **AES-256-GCM**, clé non exportable dans **Android Keystore**.
-- Pas de sauvegarde Android des données. Aucune clé utilisateur dans Git ou l’APK.
-- Les identifiants/configurations OAuth des clients installés sont **publics et distribués par les fournisseurs**, pas des secrets personnels ni un enregistrement OAuth QuotaDeck. Leur utilisation n’est pas une approbation officielle de cette application.
-- Le SSO Google ne doit jamais être exécuté dans une WebView contrôlée par QuotaDeck. Aucun contournement par User-Agent ni assouplissement des protections Google. Les redirections refusées et les chargements web de plus de 45 secondes ont une explication visible.
-- Aucun mot de passe lu par QuotaDeck. La fenêtre web n’expose **aucun pont JavaScript**, n’a pas d’accès fichier/contenu, refuse HTTP et les erreurs TLS. Captures d’écran bloquées durant la connexion et dans le formulaire de clé. Les écrans d’erreur OAuth sans donnée secrète sont capturables.
-- `Déconnecter` efface la session et le cache locaux. La révocation côté fournisseur se fait dans son compte. Aucune révocation automatique d’autres applications.
-- Les erreurs ne reprennent jamais le corps HTTP ni les jetons. Un diagnostic copiable contient uniquement la version de l’app, l’API Android, le fournisseur, l’étape, un éventuel statut HTTP/code d’erreur autorisé et la catégorie réseau ; ni identifiant de compte, ni query OAuth, ni message brut d’exception. Les redirections HTTP avec jeton/cookie ne sont pas suivies.
-- Un quota manquant reste **Non communiqué**, jamais 0 % ou 100 % supposé. Un relevé en échec conserve le précédent en le marquant non actualisé. Des valeurs Google toutes à 100 % issues du fallback modèles sont masquées car elles peuvent être des placeholders.
-- Actualisation à l’ouverture et sur bouton ; pas de polling agressif en arrière-plan.
+## Data and security
 
-## Connexion reçue mais erreur réseau
+- Sessions and the most recent readings are encrypted with **AES-256-GCM** and a non-exportable **Android Keystore** key.
+- Android backups and device transfers are disabled for app data. No user credential is stored in Git or bundled in the APK.
+- Installed-client OAuth configuration is **publicly distributed by the providers**. It is not a user's private credential or a QuotaDeck OAuth registration; its use does not imply official approval.
+- Google SSO is never run in an app-controlled WebView. No spoofed user-agent or weakened Google security settings are used. Blocked redirects and embedded loads exceeding 45 seconds produce visible messages.
+- QuotaDeck does not read your password. The embedded fallback exposes **no JavaScript bridge**, blocks file/content access, plain HTTP and TLS errors, and clears WebView data when disposed.
+- Screenshots are blocked during sign-in and in the API-key form. Non-sensitive OAuth error screens can be captured. Copied device codes are marked sensitive on supported Android versions.
+- **Disconnect** removes the local session and cache. Revoke provider-side authorization in the provider's settings; the app does not revoke other applications.
+- Errors and copied diagnostics never include raw HTTP bodies, headers, passwords, API keys, cookies, sign-in codes, tokens or account identifiers. Diagnostics include only app/Android API version, provider, stage, allowlisted HTTP/OAuth error codes, network category and a safe endpoint label. Credential-bearing redirects are not followed.
+- A missing quota remains **Not reported**, never an assumed 0% or 100%. Failed refreshes keep the previous reading and mark it as stale. Unverifiable all-100% Antigravity model fallback values are hidden rather than presented as confirmed data.
+- Refresh runs on app opening and on request; there is no aggressive background polling.
 
-La page locale confirme seulement que le **code d’autorisation est reçu**, pas qu’un jeton a été obtenu. Appuyez sur **Revenir dans QuotaDeck** (ou fermez l’onglet pour revenir manuellement) : l’app poursuit l’échange et la lecture des quotas au premier plan. Elle attend au maximum deux minutes ce retour après réception du code ; au-delà, relancer une nouvelle connexion.
+## Troubleshooting sign-in
 
-Si la finalisation échoue, l’écran affiche l’étape concernée et **Copier le diagnostic**. Les erreurs DNS, TLS, délais réseau et refus de réseau sont distinguées ; les codes OAuth sont conservés uniquement sur liste blanche, jamais les descriptions brutes du fournisseur. Le diagnostic ne contient aucun mot de passe, clé API, cookie, code de connexion ou jeton et peut être partagé pour le dépannage. Aucun journal n’est envoyé automatiquement.
+For Claude and Antigravity, the local page confirms **receipt of an authorization code**, not a completed token exchange. Select **Return to QuotaDeck**, or close the tab and return manually. The app waits up to two minutes for foreground return after receiving the code; restart sign-in if that window expires.
 
-Les tests de régression exécutent le vrai ViewModel, le serveur de callback et l’échange HTTP sur fixtures pour Claude et Google avec un réseau volontairement refusé en arrière-plan. Pour Codex, ils exercent les endpoints de demande de code, polling, échange, stockage et lecture simulée, ainsi que reprise après retour navigateur/coupure réseau, annulation, refus, expiration, paramètres du protocole et menu de retour sans secret. Ces scénarios ne prouvent pas la cause exacte du refus sur un téléphone particulier. Une validation sur téléphone avec le compte concerné reste nécessaire ; ces tests simulés ne garantissent pas l’accès d’un autre compte.
+For Codex, finish authorization in OpenAI and return manually. Do not start a new connection after approving the current code. The existing attempt resumes in the foreground. If Android destroys the process while the browser is open, start a fresh attempt with a new code.
 
-## Développer
+On failure, check the displayed stage and use **Copy diagnostic**. DNS, TLS/certificate failures, timeouts and restricted network access have separate categories. Backend descriptions are never copied because they can contain private data. No support log is sent automatically.
 
-JDK 17, SDK Android 35 et build-tools 35.0.0. Versions alignées sur les autres applications Kotlin de Julien : AGP 8.13.2, Kotlin 2.1.0, Compose BOM 2025.01.01, wrapper Gradle 8.13 avec SHA-256 vérifié.
+Regression tests exercise the real ViewModel and HTTP transport with local fixtures: browser callbacks, device-code requests, polling, token exchange, quota parsing, foreground return, transient failures, refusal, expiry, cancellation and the credential-free browser return action. Memory-store fixtures verify orchestration, not Android Keystore persistence. A real-account check on the target phone is still required; simulated tests are not evidence that every provider account works.
+
+## Development
+
+Use **JDK 17**, **Android SDK 35** and **build-tools 35.0.0**. The project pins AGP 8.13.2, Kotlin 2.1.0, Compose BOM 2025.01.01 and Gradle 8.13 with a verified distribution SHA-256.
 
 ```sh
 ./gradlew testDebugUnitTest lintDebug assembleDebug --no-daemon
 ```
 
-Configurer `JAVA_HOME` pour le JDK 17 et `ANDROID_HOME` pour le SDK Android ; si nécessaire, déclarer `sdk.dir` dans `local.properties`, qui reste hors Git. Ne jamais utiliser de session/clé de production dans les fixtures de test.
+Set `JAVA_HOME` and `ANDROID_HOME`; declare `sdk.dir` in an untracked `local.properties` if needed. Never put production sessions or keys in test fixtures.
 
-## Release signée
+App-owned UI, diagnostics, documentation and workflow messages are maintained in English. Tests cover English rendering on a French device locale and display-only compatibility for older French cache entries. This compatibility mapping intentionally retains legacy French input strings; protocol fields, storage identifiers and user-owned names are not renamed.
 
-Le workflow `.github/workflows/build.yml` vérifie tests, lint et APK debug sur push/PR. `.github/workflows/release.yml` fait les tests, le lint release, le build signé, la vérification `apksigner`, le SHA-256 et publie une prerelease GitHub sur un tag **vMAJOR.MINOR.PATCH**.
+## Signed releases
 
-Secrets GitHub dédiés à cette app : `SIGNING_KEYSTORE_BASE64`, `SIGNING_STORE_PASSWORD`, `SIGNING_KEY_ALIAS`, `SIGNING_KEY_PASSWORD`. La clé privée n’est jamais committée et ne doit pas être remplacée après diffusion de la première version.
+[Android CI](.github/workflows/build.yml) runs tests, lint and a debug APK build on push/PR. [Signed Android Release](.github/workflows/release.yml) tests, lints, builds, verifies the signature and SHA-256, and publishes a GitHub prerelease on a validated **vMAJOR.MINOR.PATCH** tag.
 
-Build signé local, sans copier les secrets dans le dépôt :
+Dedicated GitHub secrets: `SIGNING_KEYSTORE_BASE64`, `SIGNING_STORE_PASSWORD`, `SIGNING_KEY_ALIAS`, `SIGNING_KEY_PASSWORD`. Never commit or replace the private release key after distributing the first version.
+
+Build locally without copying signing secrets into the checkout:
 
 ```sh
-python3 scripts/build_signed.py --config /chemin/prive/signing.json
+python3 scripts/build_signed.py --config /private/path/signing.json
 ```
 
-Le JSON privé contient les quatre valeurs `SIGNING_STORE_FILE`, `SIGNING_STORE_PASSWORD`, `SIGNING_KEY_ALIAS`, `SIGNING_KEY_PASSWORD`. Conserver la clé de signature et sa copie de secours hors du dépôt (répertoire 0700, fichiers 0600). Ne pas déplacer les secrets dans le vault documentaire.
+The private JSON contains `SIGNING_STORE_FILE`, `SIGNING_STORE_PASSWORD`, `SIGNING_KEY_ALIAS` and `SIGNING_KEY_PASSWORD`. Keep the key and its backup outside the repository, with directory permissions 0700 and file permissions 0600. Do not put secrets in a synchronized document vault.
 
-VersionCode : `major*10000 + minor*100 + patch` (minor et patch < 100). Ne pas publier une version dont le code régresse.
+VersionCode is `major*10000 + minor*100 + patch`, with minor and patch below 100. Never publish a decreasing versionCode.
 
-## Sources de protocole consultées
+## Protocol references
 
-Implémentation Kotlin indépendante ; références pour les formats et endpoints :
+Independent Kotlin implementation, informed by these formats and endpoints:
 
-- [Politique Google : navigateurs sécurisés, sans OAuth en WebView](https://developers.google.com/identity/protocols/oauth2/policies#browsers).
-- [Authentification officielle Claude Code](https://code.claude.com/docs/en/authentication) ; le client installé 2.1.296 fournit les URLs publiques `claude.com/cai/oauth/authorize`, `platform.claude.com/v1/oauth/token` et le callback localhost.
-- [Connexion OpenCode Go par clé](https://opencode.ai/docs/go/).
-- [Codex officiel : device code auth](https://github.com/openai/codex/blob/main/codex-rs/login/src/device_code_auth.rs).
-- [CodexBar : Claude web API](https://github.com/steipete/CodexBar/blob/main/Sources/CodexBarCore/Providers/Claude/ClaudeWeb/ClaudeWebAPIFetcher.swift).
-- [CodexBar : Codex usage](https://github.com/steipete/CodexBar/blob/main/Sources/CodexBarCore/Providers/Codex/CodexOAuth/CodexOAuthUsageFetcher.swift).
-- [CodexBar : Antigravity remote quotas](https://github.com/steipete/CodexBar/blob/main/Sources/CodexBarCore/Providers/Antigravity/AntigravityRemoteUsageFetcher.swift) et [summary](https://github.com/steipete/CodexBar/blob/main/Sources/CodexBarCore/Providers/Antigravity/AntigravityQuotaSummaryParser.swift).
-- [Antigravity installed-client config](https://github.com/NoeFabris/opencode-antigravity-auth/blob/main/src/constants.ts).
-- [CodexBar : OpenCode Go API et console](https://github.com/steipete/CodexBar/blob/main/Sources/CodexBarCore/Providers/OpenCodeGo/OpenCodeGoUsageFetcher.swift).
+- [Google secure-browser OAuth policy](https://developers.google.com/identity/protocols/oauth2/policies#browsers).
+- [Official Claude Code authentication](https://code.claude.com/docs/en/authentication); the installed 2.1.296 distribution supplies the public authorization/token URLs and localhost callback configuration.
+- [OpenCode Go key-based connection](https://opencode.ai/docs/go/).
+- [Official Codex device-code flow](https://github.com/openai/codex/blob/main/codex-rs/login/src/device_code_auth.rs).
+- [CodexBar Claude web API](https://github.com/steipete/CodexBar/blob/main/Sources/CodexBarCore/Providers/Claude/ClaudeWeb/ClaudeWebAPIFetcher.swift).
+- [CodexBar Codex usage](https://github.com/steipete/CodexBar/blob/main/Sources/CodexBarCore/Providers/Codex/CodexOAuth/CodexOAuthUsageFetcher.swift).
+- [CodexBar Antigravity remote quotas](https://github.com/steipete/CodexBar/blob/main/Sources/CodexBarCore/Providers/Antigravity/AntigravityRemoteUsageFetcher.swift) and [summary parser](https://github.com/steipete/CodexBar/blob/main/Sources/CodexBarCore/Providers/Antigravity/AntigravityQuotaSummaryParser.swift).
+- [Antigravity installed-client configuration](https://github.com/NoeFabris/opencode-antigravity-auth/blob/main/src/constants.ts).
+- [CodexBar OpenCode Go API and console](https://github.com/steipete/CodexBar/blob/main/Sources/CodexBarCore/Providers/OpenCodeGo/OpenCodeGoUsageFetcher.swift).
 
-Pas de backend caché ni de proxy vers le VPS. Le dashboard dépend de l’accès direct du téléphone aux fournisseurs.
+No hidden backend or proxy: the phone connects directly to each provider.

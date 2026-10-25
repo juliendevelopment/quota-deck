@@ -21,7 +21,7 @@ class CodexBrowserReturnTest {
         val intent = providerBrowserIntent(context, Uri.parse("https://auth.openai.com/codex/device")).intent
         val menu = intent.getParcelableArrayListExtra<Bundle>(CustomTabsIntent.EXTRA_MENU_ITEMS)!!
         assertEquals(1, menu.size)
-        assertEquals("Revenir dans QuotaDeck", menu.first().getString(CustomTabsIntent.KEY_MENU_ITEM_TITLE))
+        assertEquals("Return to QuotaDeck", menu.first().getString(CustomTabsIntent.KEY_MENU_ITEM_TITLE))
         val back = menu.first().getParcelable<PendingIntent>(CustomTabsIntent.KEY_PENDING_INTENT)!!
         assertTrue(back.isImmutable)
         assertEquals(context.packageName, back.creatorPackage)

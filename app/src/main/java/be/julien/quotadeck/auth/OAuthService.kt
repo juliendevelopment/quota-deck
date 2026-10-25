@@ -38,8 +38,8 @@ class OAuthService(private val api: ApiClient = ApiClient(), private val openAiB
     }))
     suspend fun startCodex(): DeviceLogin {
         val data = api.post("$openAiBase/api/accounts/deviceauth/usercode", buildJsonObject { put("client_id", OAuthConfig.OPENAI_CLIENT) })
-        return DeviceLogin(data.text("device_auth_id") ?: throw ProviderException("OpenAI ne propose pas de connexion par code actuellement."),
-            data.text("user_code") ?: data.text("usercode") ?: throw ProviderException("Code OpenAI manquant."), (data.text("interval")?.trim()?.toLongOrNull() ?: 5).coerceIn(5, 15 * 60))
+        return DeviceLogin(data.text("device_auth_id") ?: throw ProviderException("OpenAI device-code sign-in is currently unavailable."),
+            data.text("user_code") ?: data.text("usercode") ?: throw ProviderException("OpenAI code missing."), (data.text("interval")?.trim()?.toLongOrNull() ?: 5).coerceIn(5, 15 * 60))
     }
     suspend fun finishCodex(
         login: DeviceLogin,
@@ -53,7 +53,7 @@ class OAuthService(private val api: ApiClient = ApiClient(), private val openAiB
         val available = (15 * 60_000L - (System.currentTimeMillis() - login.startedAt)).coerceIn(0, 15 * 60_000L)
         val startedNanos = System.nanoTime()
         fun remaining() = (available - (System.nanoTime() - startedNanos) / 1_000_000).coerceAtLeast(0)
-        fun expired() = ProviderException("Le code OpenAI a expiré. Relancez la connexion.", safeErrorCode = "expired_token")
+        fun expired() = ProviderException("The OpenAI code has expired. Start sign-in again.", safeErrorCode = "expired_token")
         while (remaining() > 0) {
             currentCoroutineContext().ensureActive()
             beforeRequest(remaining())
@@ -81,8 +81,8 @@ class OAuthService(private val api: ApiClient = ApiClient(), private val openAiB
                 delay(minOf(waitMillis, remaining()))
                 continue
             }
-            val code = data.text("authorization_code")?.takeIf { it.isNotBlank() } ?: throw ProviderException("Autorisation OpenAI incomplète.")
-            val verifier = data.text("code_verifier")?.takeIf { it.isNotBlank() } ?: throw ProviderException("Validation OpenAI incomplète.")
+            val code = data.text("authorization_code")?.takeIf { it.isNotBlank() } ?: throw ProviderException("Incomplete OpenAI authorization.")
+            val verifier = data.text("code_verifier")?.takeIf { it.isNotBlank() } ?: throw ProviderException("Incomplete OpenAI verification.")
             beforeRequest(remaining())
             if (remaining() <= 0) throw expired()
             onPhase(AuthPhase.TOKEN_EXCHANGE)
@@ -103,7 +103,7 @@ class OAuthService(private val api: ApiClient = ApiClient(), private val openAiB
         "code" to code, "redirect_uri" to redirect, "code_verifier" to verifier)))
     suspend fun refresh(id: ProviderId, old: Credential): Credential {
         if (id != ProviderId.CODEX && id != ProviderId.ANTIGRAVITY && id != ProviderId.CLAUDE) return old
-        if (old.refreshToken.isBlank()) throw ProviderException("Session expirée. Reconnectez ce compte.", needsLogin = true)
+        if (old.refreshToken.isBlank()) throw ProviderException("Session expired. Reconnect this account.", needsLogin = true)
         val response = if (id == ProviderId.CLAUDE) api.post(claudeTokenUrl, buildJsonObject {
             put("client_id", OAuthConfig.CLAUDE_CLIENT); put("grant_type", "refresh_token"); put("refresh_token", old.refreshToken); put("scope", "user:profile")
         }) else if (id == ProviderId.CODEX) api.post("$openAiBase/oauth/token", buildJsonObject {
@@ -114,7 +114,7 @@ class OAuthService(private val api: ApiClient = ApiClient(), private val openAiB
         return updated.copy(refreshToken = updated.refreshToken.ifBlank { old.refreshToken }, accountId = old.accountId.ifBlank { updated.accountId }, projectId = old.projectId)
     }
     private fun credential(data: JsonElement): Credential {
-        val token = data.text("access_token")?.takeIf { it.isNotBlank() } ?: throw ProviderException("Le fournisseur n’a pas renvoyé de session valide.")
+        val token = data.text("access_token")?.takeIf { it.isNotBlank() } ?: throw ProviderException("The provider did not return a valid session.")
         fun claims(value: String?): JsonElement? = value?.split('.')?.getOrNull(1)?.let { payload ->
             runCatching { Json.parseToJsonElement(Base64.getUrlDecoder().decode(payload).toString(Charsets.UTF_8)) }.getOrNull()
         }

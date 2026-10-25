@@ -20,17 +20,17 @@ fun OpenCodeConnectionScreen(error: String?, onOpenBrowser: () -> Unit, onSubmit
     BackHandler(onBack = onCancel)
     Surface(Modifier.fillMaxSize()) {
         Column(Modifier.fillMaxSize().safeDrawingPadding().padding(24.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-            Text("Connecter OpenCode Go", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.SemiBold)
-            Text("1. Ouvrez la console et connectez-vous avec Google.\n2. Copiez la clé API de votre espace Go.\n3. Revenez ici et collez-la — une seule fois suffit.")
-            OutlinedButton(onClick = onOpenBrowser, modifier = Modifier.fillMaxWidth()) { Text("Ouvrir OpenCode avec Google") }
-            Text("Utilisez votre abonnement existant. Ne souscrivez rien de nouveau. Chrome ne partage pas ses cookies avec cette app.", style = MaterialTheme.typography.bodySmall)
+            Text("Connect OpenCode Go", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.SemiBold)
+            Text("1. Open the console and sign in with Google.\n2. Copy your Go workspace API key.\n3. Return here and paste it — you only need to do this once.")
+            OutlinedButton(onClick = onOpenBrowser, modifier = Modifier.fillMaxWidth()) { Text("Open OpenCode with Google") }
+            Text("Use your existing subscription. Do not purchase a new one. Chrome does not share its cookies with this app.", style = MaterialTheme.typography.bodySmall)
             error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
-            OutlinedTextField(value = key, onValueChange = { key = it }, label = { Text("Clé API OpenCode Go") },
+            OutlinedTextField(value = key, onValueChange = { key = it }, label = { Text("OpenCode Go API key") },
                 modifier = Modifier.fillMaxWidth(), visualTransformation = PasswordVisualTransformation(), singleLine = true,
                 keyboardOptions = KeyboardOptions(autoCorrectEnabled = false, keyboardType = KeyboardType.Password))
-            Button(onClick = { val value = key.trim(); key = ""; onSubmit(value) }, enabled = key.isNotBlank(), modifier = Modifier.fillMaxWidth()) { Text("Connecter la clé") }
-            Text("Clé chiffrée sur ce téléphone. Elle sert uniquement à lire les quotas ; aucun modèle n’est appelé. Ne la partagez pas dans Discord.", style = MaterialTheme.typography.bodySmall)
-            TextButton(onClick = onCancel, modifier = Modifier.fillMaxWidth()) { Text("Annuler") }
+            Button(onClick = { val value = key.trim(); key = ""; onSubmit(value) }, enabled = key.isNotBlank(), modifier = Modifier.fillMaxWidth()) { Text("Connect key") }
+            Text("Your key is encrypted on this phone. It is only used to read quotas; no model is called. Never share it in chat.", style = MaterialTheme.typography.bodySmall)
+            TextButton(onClick = onCancel, modifier = Modifier.fillMaxWidth()) { Text("Cancel") }
         }
     }
 }
