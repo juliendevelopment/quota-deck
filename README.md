@@ -5,9 +5,9 @@ Subscription quotas for **Claude, Codex, Google Antigravity and OpenCode Go**, w
 ## Clients
 
 - **[Android](clients/android/README.md)** — working Kotlin / Jetpack Compose client, Android 8.0+. [Download v0.1.4](https://github.com/juliendevelopment/quota-deck/releases/tag/v0.1.4). Install updates **over the existing app without uninstalling** to keep encrypted sessions.
-- **[GNOME Shell extension](clients/gnome-extension/README.md)** — next implementation phase. Its directory and feature-parity scope are prepared; this repository reorganization does **not** yet ship an installable extension.
+- **[GNOME Shell extension](clients/gnome-extension/README.md)** — native GJS alpha for GNOME Shell 49/50, with panel/menu, GTK/libadwaita preferences, all four provider connectors and secure desktop keyring storage. [Installable CI packages](https://github.com/juliendevelopment/quota-deck/actions/workflows/gnome.yml).
 
-The GNOME client is intended to expose the same providers, quota information and connection/account configuration, using GNOME-native UI and secure desktop storage. Each client connects directly to providers and owns its local sessions; accounts are not automatically synchronized between devices.
+The GNOME client exposes the same providers, quota information and connection/account configuration, using GNOME-native UI and secure desktop storage. Each client connects directly to providers and owns its local sessions; accounts are not automatically synchronized between devices.
 
 ## Repository layout
 
@@ -19,7 +19,7 @@ clients/
     scripts/build_signed.py
     README.md
     RELEASE_NOTES.md
-  gnome-extension/         # GNOME client boundary and implementation brief
+  gnome-extension/         # GJS Shell/menu/preferences, provider/auth tests and ZIP packaging
 shared/                    # Cross-client behavior/data contract, not a runtime or server
   README.md
 docs/
@@ -38,7 +38,7 @@ The Android move preserves the application ID, encrypted storage, OAuth configur
   <img src="docs/screenshots/dashboard-codex-antigravity.png" alt="QuotaDeck English Android interface: Codex and Antigravity quotas" width="340" />
 </p>
 
-Real Compose rendering with **synthetic test fixtures**, not live account quota readings. These illustrate the existing Android client, not an implemented GNOME extension.
+Real Compose rendering with **synthetic test fixtures**, not live account quota readings. These illustrate the Android client, not the GNOME interface.
 
 ## Development
 
@@ -61,7 +61,17 @@ Use JDK 17, SDK 35 and build-tools 35.0.0. See the [Android guide](clients/andro
 python3 clients/android/scripts/build_signed.py --config /private/path/signing.json
 ```
 
-[Android CI](.github/workflows/build.yml) checks the repository, then tests/lints/builds Android from `clients/android`. [Signed Android Release](.github/workflows/release.yml) keeps the existing `vMAJOR.MINOR.PATCH` tag convention and reads client-local release notes. GNOME will have its own tests, package and release convention; it must not depend on Android's toolchain.
+[Android CI](.github/workflows/build.yml) checks the repository, then tests/lints/builds Android from `clients/android`. [Signed Android Release](.github/workflows/release.yml) keeps the existing `vMAJOR.MINOR.PATCH` tag convention and reads client-local release notes. [GNOME CI](.github/workflows/gnome.yml) independently verifies provider/privacy/lifecycle logic, native GJS transport/keyring/GTK and the actual ZIP in headless GNOME Shell 49/50. [GNOME Release](.github/workflows/gnome-release.yml) reserves `gnome-v*` tags; it does not use Android's toolchain or signing assets.
+
+GNOME development commands run inside its own client directory:
+
+```sh
+cd clients/gnome-extension
+npm ci --ignore-scripts
+python3 scripts/verify.py --shell
+```
+
+See the [GNOME guide](clients/gnome-extension/README.md) for native test dependencies, installation, authentication disclosures, keyring setup, package/checksum paths and the remaining user-run desktop/account checks. Node/npm are build/test tools, not runtime dependencies.
 
 ## Shared behavior and security
 

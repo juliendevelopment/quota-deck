@@ -1,0 +1,38 @@
+name: GNOME Release
+on:
+  push:
+    tags: ['gnome-v*']
+permissions:
+  contents: read
+jobs:
+  verify:
+    uses: ./.github/workflows/gnome.yml
+  publish:
+    needs: verify
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate independent GNOME tag and metadata version
+        shell: python
+        run: |
+          import json, os, re
+          from pathlib import Path
+          tag = os.environ['GITHUB_REF_NAME']
+          if not re.fullmatch(r'gnome-v\d+\.\d+\.\d+', tag):
+              raise SystemExit('Expected gnome-vMAJOR.MINOR.PATCH')
+          version = json.loads(Path('clients/gnome-extension/metadata.json').read_text())['version-name']
+          if tag != f'gnome-v{version}':
+              raise SystemExit('GNOME tag does not match metadata.json version-name')
+      - uses: actions/download-artifact@v4
+        with:
+          name: QuotaDeck-GNOME-fedora44
+          path: gnome-release
+      - name: Verify package checksum and publish GNOME prerelease
+        working-directory: gnome-release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          sha256sum --check SHA256SUMS.txt
+          gh release create "$GITHUB_REF_NAME" *.shell-extension.zip SHA256SUMS.txt --verify-tag --prerelease --title "QuotaDeck GNOME ${GITHUB_REF_NAME#gnome-v}" --notes-file ../clients/gnome-extension/RELEASE_NOTES.md

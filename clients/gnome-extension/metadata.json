@@ -1,0 +1,10 @@
+{
+  "uuid": "quotadeck@juliendevelopment.github.io",
+  "name": "QuotaDeck",
+  "description": "Subscription quotas for Claude, Codex, Google Antigravity and OpenCode Go. Connect accounts in Preferences. Uses the system browser and desktop keyring. Writes safe diagnostics to the clipboard only on request; never reads the clipboard.",
+  "shell-version": ["49", "50"],
+  "version": 1,
+  "version-name": "0.1.0",
+  "url": "https://github.com/juliendevelopment/quota-deck",
+  "settings-schema": "org.gnome.shell.extensions.quotadeck"
+}
