@@ -2,9 +2,18 @@
 
 Application Android personnelle en **Kotlin / Jetpack Compose**, en français, pour consulter sur une seule page les quotas d’abonnement **Claude, Codex, Google Antigravity et OpenCode Go**. Sans serveur QuotaDeck, publicité, télémétrie, achat ni requête de génération IA.
 
+## Aperçu
+
+<p align="center">
+  <img src="docs/screenshots/dashboard-claude-codex.png" alt="QuotaDeck sur Android : quotas Claude et Codex" width="340" />
+  <img src="docs/screenshots/dashboard-codex-antigravity.png" alt="QuotaDeck sur Android : quotas Codex et Antigravity" width="340" />
+</p>
+
+Captures réelles sur Android. Les valeurs illustrent un relevé ponctuel, pas des quotas garantis. Les barres système du téléphone ont été retirées.
+
 ## Installer
 
-Depuis les [releases privées](https://github.com/juliendevelopment/quota-deck/releases), télécharger `QuotaDeck-v0.1.3.apk`, puis autoriser son installation Android. **Android 8.0 ou plus récent** (minSdk 26). Les versions suivantes conserveront la même signature et un versionCode croissant.
+Depuis les [releases](https://github.com/juliendevelopment/quota-deck/releases), télécharger `QuotaDeck-v0.1.3.apk`, puis autoriser son installation Android. **Android 8.0 ou plus récent** (minSdk 26). Les versions suivantes conserveront la même signature et un versionCode croissant.
 
 ## Connexions
 
@@ -13,7 +22,7 @@ Depuis les [releases privées](https://github.com/juliendevelopment/quota-deck/r
 - **Antigravity** : navigateur système Google + callback OAuth sur **127.0.0.1 du téléphone**, pas sur le VPS. Configuration publique du client installé Antigravity, PKCE et contrôle de `state`. Après l’autorisation, toucher **Revenir dans QuotaDeck** : l’échange du jeton attend le retour de l’activité au premier plan, pour ne pas dépendre d’un accès réseau en arrière-plan autorisé par le téléphone. Les scopes techniques Cloud Platform du client sont présentés avant l’ouverture. Nécessite un compte déjà initialisé dans Antigravity sur ordinateur. Aucun projet, onboarding ou service facturable n’est créé. Google peut refuser ce client sur certains comptes ; ne pas essayer de contourner ce refus.
 - **OpenCode Go** : `Connecter OpenCode Go` → **Ouvrir OpenCode avec Google** dans le navigateur système → récupérer la clé API de l’espace Go dans la console → revenir dans QuotaDeck et coller la clé **uniquement dans l’app**, une seule fois. Aucun nouvel abonnement nécessaire. La clé sert uniquement à lire `/zen/go/v1/usage`, jamais à appeler un modèle. Les cookies Chrome ne sont pas transférables à une WebView : ouvrir simplement le même site dans Chrome ne connecterait pas l’app. L’ancien parcours Google intégré a donc été retiré du chemin principal. Les anciennes sessions déjà enregistrées restent lisibles jusqu’à expiration.
 
-**Cette version est une alpha non officielle.** Les interfaces privées/internes des fournisseurs peuvent changer. La compilation, les tests synthétiques et les tests d’interface ne prouvent pas que la connexion d’un compte personnel particulier sera acceptée. Les quatre parcours doivent être essayés avec les comptes de Julien sur son téléphone. Aucune donnée de quota fictive n’est affichée et aucun compte préconnecté n’est embarqué.
+**Cette version est une alpha non officielle.** Les interfaces privées/internes des fournisseurs peuvent changer. La compilation, les tests synthétiques et les tests d’interface ne prouvent pas que la connexion d’un compte personnel particulier sera acceptée. Les captures ci-dessus proviennent d’un essai réel sur téléphone ; elles ne garantissent pas que tous les comptes ou tous les champs de quota seront pris en charge. Aucune donnée de quota fictive n’est affichée et aucun compte préconnecté n’est embarqué.
 
 ## Données et sécurité
 
@@ -33,7 +42,7 @@ La page locale confirme seulement que le **code d’autorisation est reçu**, pa
 
 Si la finalisation échoue, l’écran affiche l’étape concernée et **Copier le diagnostic**. Les erreurs DNS, TLS, délais réseau et refus de réseau sont distinguées ; les codes OAuth sont conservés uniquement sur liste blanche, jamais les descriptions brutes du fournisseur. Le diagnostic ne contient aucun mot de passe, clé API, cookie, code de connexion ou jeton et peut être partagé pour le dépannage. Aucun journal n’est envoyé automatiquement.
 
-Les tests de régression exécutent le vrai ViewModel, le serveur de callback et l’échange HTTP sur fixtures pour Claude et Google avec un réseau volontairement refusé en arrière-plan. Pour Codex, ils exercent les endpoints de demande de code, polling, échange, stockage et lecture simulée, ainsi que reprise après retour navigateur/coupure réseau, annulation, refus, expiration, paramètres du protocole et menu de retour sans secret. Ces scénarios ne prouvent pas la cause exacte du refus sur un téléphone particulier. L’accès des comptes réels reste à valider sur le téléphone.
+Les tests de régression exécutent le vrai ViewModel, le serveur de callback et l’échange HTTP sur fixtures pour Claude et Google avec un réseau volontairement refusé en arrière-plan. Pour Codex, ils exercent les endpoints de demande de code, polling, échange, stockage et lecture simulée, ainsi que reprise après retour navigateur/coupure réseau, annulation, refus, expiration, paramètres du protocole et menu de retour sans secret. Ces scénarios ne prouvent pas la cause exacte du refus sur un téléphone particulier. Une validation sur téléphone avec le compte concerné reste nécessaire ; ces tests simulés ne garantissent pas l’accès d’un autre compte.
 
 ## Développer
 
@@ -43,11 +52,11 @@ JDK 17, SDK Android 35 et build-tools 35.0.0. Versions alignées sur les autres 
 ./gradlew testDebugUnitTest lintDebug assembleDebug --no-daemon
 ```
 
-Sur ce VPS, les sources sont `/home/fedora/dev/sources/quota-deck` et le SDK `/home/fedora/dev/apps/android-sdk`. `local.properties` reste hors Git. Ne jamais utiliser de session/clé de production dans les fixtures de test.
+Configurer `JAVA_HOME` pour le JDK 17 et `ANDROID_HOME` pour le SDK Android ; si nécessaire, déclarer `sdk.dir` dans `local.properties`, qui reste hors Git. Ne jamais utiliser de session/clé de production dans les fixtures de test.
 
 ## Release signée
 
-Le workflow `.github/workflows/build.yml` vérifie tests, lint et APK debug sur push/PR. `.github/workflows/release.yml` fait les tests, le lint release, le build signé, la vérification `apksigner`, le SHA-256 et publie une prerelease privée sur un tag **vMAJOR.MINOR.PATCH**.
+Le workflow `.github/workflows/build.yml` vérifie tests, lint et APK debug sur push/PR. `.github/workflows/release.yml` fait les tests, le lint release, le build signé, la vérification `apksigner`, le SHA-256 et publie une prerelease GitHub sur un tag **vMAJOR.MINOR.PATCH**.
 
 Secrets GitHub dédiés à cette app : `SIGNING_KEYSTORE_BASE64`, `SIGNING_STORE_PASSWORD`, `SIGNING_KEY_ALIAS`, `SIGNING_KEY_PASSWORD`. La clé privée n’est jamais committée et ne doit pas être remplacée après diffusion de la première version.
 
@@ -57,7 +66,7 @@ Build signé local, sans copier les secrets dans le dépôt :
 python3 scripts/build_signed.py --config /chemin/prive/signing.json
 ```
 
-Le JSON privé contient les quatre valeurs `SIGNING_STORE_FILE`, `SIGNING_STORE_PASSWORD`, `SIGNING_KEY_ALIAS`, `SIGNING_KEY_PASSWORD`. La copie de secours de la clé de cette app est conservée hors du dépôt sous `/home/fedora/agent-managed/keys/android/quota-deck/` (répertoire 0700, fichiers 0600). Ne pas déplacer les secrets dans le vault documentaire.
+Le JSON privé contient les quatre valeurs `SIGNING_STORE_FILE`, `SIGNING_STORE_PASSWORD`, `SIGNING_KEY_ALIAS`, `SIGNING_KEY_PASSWORD`. Conserver la clé de signature et sa copie de secours hors du dépôt (répertoire 0700, fichiers 0600). Ne pas déplacer les secrets dans le vault documentaire.
 
 VersionCode : `major*10000 + minor*100 + patch` (minor et patch < 100). Ne pas publier une version dont le code régresse.
 
