@@ -10,3 +10,8 @@ local.properties
 *.apk
 *.aab
 .DS_Store
+__pycache__/
+*.py[cod]
+node_modules/
+**/dist/
+*.shell-extension.zip

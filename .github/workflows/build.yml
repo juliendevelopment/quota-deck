@@ -10,7 +10,17 @@ concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
 jobs:
+  repository:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify repository layout and documentation links
+        run: python3 -m unittest discover -s tests -v
   verify:
+    needs: repository
+    defaults:
+      run:
+        working-directory: clients/android
     runs-on: ubuntu-latest
     timeout-minutes: 25
     steps:
@@ -29,7 +39,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: QuotaDeck-debug
-          path: app/build/outputs/apk/debug/app-debug.apk
+          path: clients/android/app/build/outputs/apk/debug/app-debug.apk
           retention-days: 7
           if-no-files-found: error
       - name: Test and lint reports
@@ -38,7 +48,7 @@ jobs:
         with:
           name: reports
           path: |
-            app/build/reports/
-            app/build/test-results/
-            app/build/qa/
+            clients/android/app/build/reports/
+            clients/android/app/build/test-results/
+            clients/android/app/build/qa/
           retention-days: 7
