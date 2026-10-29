@@ -39,7 +39,7 @@ Install updates over the existing app, **without uninstalling**. Releases keep t
 - **Disconnect** removes the local session and cache. Revoke provider-side authorization in the provider's settings; the app does not revoke other applications.
 - Errors and copied diagnostics never include raw HTTP bodies, headers, passwords, API keys, cookies, sign-in codes, tokens or account identifiers. Diagnostics include only app/Android API version, provider, stage, allowlisted HTTP/OAuth error codes, network category and a safe endpoint label. Credential-bearing redirects are not followed.
 - A missing quota remains **Not reported**, never an assumed 0% or 100%. Failed refreshes keep the previous reading and mark it as stale. Unverifiable all-100% Antigravity model fallback values are hidden rather than presented as confirmed data.
-- Refresh runs on app opening and on request; there is no aggressive background polling.
+- Refresh runs whenever QuotaDeck enters the foreground and on request; there is no aggressive background polling.
 
 ## Troubleshooting sign-in
 

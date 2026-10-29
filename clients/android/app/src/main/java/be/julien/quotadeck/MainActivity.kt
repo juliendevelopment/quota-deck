@@ -26,7 +26,7 @@ import be.julien.quotadeck.ui.*
 
 class MainActivity : ComponentActivity() {
     private val model: DashboardViewModel by viewModels()
-    override fun onResume() { super.onResume(); model.setUiActive(true) }
+    override fun onResume() { super.onResume(); model.onUiResumed() }
     override fun onPause() { model.setUiActive(false); super.onPause() }
     override fun onNewIntent(intent: android.content.Intent) {
         super.onNewIntent(intent)

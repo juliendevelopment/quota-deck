@@ -17,15 +17,18 @@ class DashboardViewModel @JvmOverloads constructor(application: Application,
     private val service: ProviderReader = ProviderService(),
     private val oauth: OAuthService = OAuthService(),
 ) : AndroidViewModel(application) {
-    private val uiActive = MutableStateFlow(true)
+    private val uiActive = MutableStateFlow(false)
     fun setUiActive(active: Boolean) { uiActive.value = active }
+    fun onUiResumed() {
+        setUiActive(true)
+        refreshAll()
+    }
     private val jobs = mutableMapOf<ProviderId, Job>()
     private var loginJob: Job? = null
     private val _states = MutableStateFlow(ProviderId.entries.map { ProviderState(it, store.credential(it) != null, snapshot = store.snapshot(it)?.toEnglishDisplay()) })
     val states = _states.asStateFlow()
     private val _login = MutableStateFlow<LoginState?>(null)
     val login = _login.asStateFlow()
-    init { refreshAll() }
     private fun state(id: ProviderId, update: (ProviderState) -> ProviderState) { _states.update { rows -> rows.map { if (it.id == id) update(it) else it } } }
     fun refreshAll() { ProviderId.entries.forEach { if (store.credential(it) != null && jobs[it]?.isActive != true) refresh(it) } }
     private fun refresh(id: ProviderId) {
