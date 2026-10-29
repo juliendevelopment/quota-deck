@@ -11,8 +11,8 @@ android {
         applicationId = "be.julien.quotadeck"
         minSdk = 26
         targetSdk = 35
-        versionCode = System.getenv("VERSION_CODE")?.toInt() ?: 104
-        versionName = System.getenv("VERSION_NAME") ?: "0.1.4"
+        versionCode = System.getenv("VERSION_CODE")?.toInt() ?: 105
+        versionName = System.getenv("VERSION_NAME") ?: "0.1.5"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
     signingConfigs {

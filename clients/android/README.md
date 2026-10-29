@@ -15,7 +15,7 @@ English UI previews rendered by the app's real Compose components using **synthe
 
 ## Installation
 
-Download `QuotaDeck-v0.1.4.apk` from the [releases](https://github.com/juliendevelopment/quota-deck/releases) and allow installation on your Android device. **Android 8.0 or later** is required (minSdk 26).
+Download `QuotaDeck-v0.1.5.apk` from the [releases](https://github.com/juliendevelopment/quota-deck/releases) and allow installation on your Android device. **Android 8.0 or later** is required (minSdk 26).
 
 Install updates over the existing app, **without uninstalling**. Releases keep the same signing certificate and use an increasing versionCode, preserving your encrypted sessions. The app uses English even when the device language is French. Existing cached quota labels from earlier French versions are translated for display without clearing accounts or changing their values.
 

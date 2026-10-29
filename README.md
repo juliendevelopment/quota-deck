@@ -4,7 +4,7 @@ Subscription quotas for **Claude, Codex, Google Antigravity and OpenCode Go**, w
 
 ## Clients
 
-- **[Android](clients/android/README.md)** — working Kotlin / Jetpack Compose client, Android 8.0+. [Download v0.1.4](https://github.com/juliendevelopment/quota-deck/releases/tag/v0.1.4). Install updates **over the existing app without uninstalling** to keep encrypted sessions.
+- **[Android](clients/android/README.md)** — working Kotlin / Jetpack Compose client, Android 8.0+. [Download v0.1.5](https://github.com/juliendevelopment/quota-deck/releases/tag/v0.1.5). Install updates **over the existing app without uninstalling** to keep encrypted sessions.
 - **[GNOME Shell extension](clients/gnome-extension/README.md)** — next implementation phase. Its directory and feature-parity scope are prepared; this repository reorganization does **not** yet ship an installable extension.
 
 The GNOME client is intended to expose the same providers, quota information and connection/account configuration, using GNOME-native UI and secure desktop storage. Each client connects directly to providers and owns its local sessions; accounts are not automatically synchronized between devices.

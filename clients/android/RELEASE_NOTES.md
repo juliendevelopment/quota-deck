@@ -1,19 +1,17 @@
-## QuotaDeck 0.1.4 — English interface and documentation
+## QuotaDeck 0.1.5 — Refresh when returning to the app
 
-Install this APK **over the existing app without uninstalling**. It uses the same signing certificate and versionCode 104, preserving encrypted sessions and account connections.
+Install this APK **over the existing app without uninstalling**. It uses the same signing certificate and versionCode 105, preserving encrypted sessions and account connections.
 
 ### Changes
 
-- The dashboard, quota labels, relative reset times, sign-in instructions, buttons, accessibility labels, errors, copied diagnostics and local browser callback pages are now in English.
-- App-owned text remains English on a French device locale. Reading timestamps use English month names while keeping the device time zone.
-- Cached labels from earlier French versions are translated for display, including balances and workspace notice prefixes. Percentages, missing values, reset dates, timestamps, account identities and user-owned workspace names are preserved. Credentials and encrypted storage identifiers are unchanged.
-- The README, workflow messages, repository description and release documentation are in English.
-- README screenshots now show the English interface rendered by real Compose components with explicitly synthetic test fixtures; they are not live account quota readings.
+- Connected-provider quotas refresh whenever QuotaDeck enters the foreground, including after pressing Home and reopening the app while its process remains alive.
+- The first reading now begins at the same foreground lifecycle boundary instead of only when the ViewModel is first created.
+- Existing per-provider in-flight job protection remains in place, so repeated lifecycle events do not start concurrent quota reads for the same account.
 
 ### Unchanged behavior and security
 
-Provider endpoints, OAuth client configuration, scopes, PKCE/state validation, device-code polling, foreground gating, signing keys and credential storage remain unchanged. No model requests, new permissions, billing changes or telemetry were added. Provider/browser/system-owned pages and user data may retain their own language.
+Provider endpoints, OAuth client configuration, scopes, PKCE/state validation, device-code polling, signing keys and credential storage remain unchanged. No model requests, new permissions, billing changes or telemetry were added. Failed readings retain the last known quota and are shown as stale.
 
 ### Verification
 
-Tests cover English reset/quota labels and diagnostics, compatibility with older cached data, preservation of user-owned names, and native English UI rendering on a French locale. The complete authentication and quota regression suite is run along with release lint and a signed APK build. Real account access still depends on provider support and the account's permissions.
+A fixture regression test covers initial foreground entry and Home → reopen with the same ViewModel still alive. The complete Android unit suite, lint and debug build pass locally. The GitHub release workflow reruns tests, release lint, signed APK assembly and certificate verification. A real account refresh on the target phone remains a device-only check.
